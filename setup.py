@@ -3,6 +3,10 @@ from pathlib import Path
 from setuptools import find_packages
 from setuptools import setup
 
+requirements = []
+with open("requirements.txt") as f:
+    requirements = f.read().splitlines()
+
 setup(
     name="molter",
     description="Shedding a new skin on Dis-Snek's commands.",
@@ -13,9 +17,7 @@ setup(
     version="0.0.1",
     packages=find_packages(),
     python_requires=">=3.10",
-    install_requires=(Path(__file__).parent / "requirements.txt")
-    .read_text()
-    .splitlines(),
+    install_requires=requirements,
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
