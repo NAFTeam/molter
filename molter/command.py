@@ -34,8 +34,8 @@ def _convert_to_bool(argument: str) -> bool:
 def _get_converter(
     anno: type,
 ) -> typing.Callable[[dis_snek.MessageContext, str], typing.Any]:  # type: ignore
-    if issubclass(anno, dis_snek.BaseChannel):
-        return lambda ctx, arg: str(arg)
+    if converter := converters.SNEK_OBJECT_TO_CONVERTER.get(anno, None):
+        return converter().convert
     elif issubclass(anno, converters.Converter):
         return anno().convert
     elif inspect.isfunction(anno):
@@ -146,7 +146,7 @@ class MolterCommand(dis_snek.MessageCommand):
                         else:
                             # vague, ik
                             raise errors.BadArgument(
-                                f"Could not convert {arg} into a type specified in"
+                                f"Could not convert {arg} into a type specified for"
                                 f" {param.name}."
                             )
                     else:
@@ -172,7 +172,7 @@ def message_command(
 
     def wrapper(func):
         if not inspect.iscoroutinefunction(func):
-            raise ValueError("Commands must be coroutines")
+            raise ValueError("Commands must be coroutines.")
         return MolterCommand(
             name=name or func.__name__, callback=func, params=_get_params(func)
         )
