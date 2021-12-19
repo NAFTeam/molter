@@ -1,1 +1,1 @@
-dis-snek>=3.0.0
+dis-snek>=4.0.0
