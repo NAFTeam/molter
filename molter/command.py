@@ -36,7 +36,7 @@ def _get_converter(
 ) -> typing.Callable[[dis_snek.MessageContext, str], typing.Any]:  # type: ignore
     if converter := converters.SNEK_OBJECT_TO_CONVERTER.get(anno, None):
         return converter().convert  # type: ignore
-    elif issubclass(anno, converters.Converter):
+    elif inspect.isclass(anno) and issubclass(anno, converters.Converter):
         return anno().convert  # type: ignore
     elif inspect.isfunction(anno):
         num_params = len(inspect.signature(anno).parameters.values())
@@ -75,16 +75,19 @@ def _get_params(func: typing.Callable):
         if typing.get_origin(anno) == typing.Union:
             for arg in typing.get_args(anno):
                 if arg != NoneType:
-                    cmd_param.converters.append(_get_converter(arg))
+                    converter = _get_converter(arg)
+                    cmd_param.converters.append(converter)
                 elif cmd_param.default == dis_snek.const.MISSING:  # d.py-like behavior
                     cmd_param.default = None
         else:
-            cmd_param.converters.append(_get_converter(anno))
+            converter = _get_converter(anno)
+            cmd_param.converters.append(converter)
 
-        if param.KEYWORD_ONLY:
-            cmd_param.consume_rest = True
-        elif param.VAR_POSITIONAL:
-            cmd_param.variable = True
+        match param.kind:
+            case param.KEYWORD_ONLY:
+                cmd_param.consume_rest = True
+            case param.VAR_POSITIONAL:
+                cmd_param.variable = True
 
         cmd_params.append(cmd_param)
 
@@ -103,12 +106,17 @@ async def maybe_coroutine(func: typing.Callable, *args, **kwargs):
 )
 class MolterCommand(dis_snek.MessageCommand):
     params: list[CommandParameter] = attr.ib(
-        metadata=dis_snek.utils.docs("The paramters of the command.")
+        metadata=dis_snek.utils.docs("The paramters of the command."), default=None
     )
 
     async def call_callback(
         self, callback: typing.Callable, ctx: dis_snek.MessageContext
     ):
+        if not self.params:
+            # if we did this earlier, we would have to deal with self
+            # and im too lazy to deal with self
+            self.params = _get_params(self.callback)
+
         # sourcery skip: remove-empty-nested-block, remove-redundant-if, remove-unnecessary-else
         if len(self.params) == 0:
             return await callback(ctx)
@@ -127,22 +135,25 @@ class MolterCommand(dis_snek.MessageCommand):
                         arg = " ".join(args[index:])
                         break_for_loop = True
                     if param.variable:
-                        # what do we do here?
-                        pass
+                        # temp behavior until i decide what to do with this
+                        new_args.append(args[index:])
+                        break_for_loop = True
+                        break
 
-                    converted = None
+                    converted = dis_snek.const.MISSING
                     for converter in param.converters:
                         try:
                             converted = await maybe_coroutine(converter, ctx, arg)
                             break
                         except Exception as e:
-                            if len(param.converters) == 1:
+                            if param.default == dis_snek.const.MISSING:
                                 raise errors.BadArgument(str(e))
 
-                    if converted is None:
-                        if param.default and param.default != dis_snek.const.MISSING:
+                    if converted == dis_snek.const.MISSING:
+                        if param.default != dis_snek.const.MISSING:
                             converted = param.default
                             new_args.append(converted)
+                            param_index += 1
                         else:
                             # vague, ik
                             raise errors.BadArgument(
@@ -151,10 +162,16 @@ class MolterCommand(dis_snek.MessageCommand):
                             )
                     else:
                         new_args.append(converted)
+                        param_index += 1
                         break
 
                 if break_for_loop:
                     break
+
+            if len(new_args) < len(self.params):
+                raise errors.BadArgument(
+                    f"Missing argument for {self.params[len(new_args)].name}"
+                )
 
             return await callback(ctx, *new_args)
 
@@ -173,9 +190,7 @@ def message_command(
     def wrapper(func):
         if not inspect.iscoroutinefunction(func):
             raise ValueError("Commands must be coroutines.")
-        return MolterCommand(
-            name=name or func.__name__, callback=func, params=_get_params(func)
-        )
+        return MolterCommand(name=name or func.__name__, callback=func)
 
     return wrapper
 
