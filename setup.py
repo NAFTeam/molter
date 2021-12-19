@@ -14,7 +14,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Astrea49",
     url="https://github.com/Astrea49/molter",
-    version="0.0.1",
+    version="0.0.1b",
     packages=find_packages(),
     python_requires=">=3.10",
     install_requires=requirements,
