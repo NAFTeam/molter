@@ -5,22 +5,25 @@ import dis_snek
 
 from . import errors
 
+T_co = typing.TypeVar("T_co", covariant=True)
 
-class Converter:
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str):
+
+@typing.runtime_checkable
+class Converter(typing.Protocol[T_co]):
+    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> T_co:
         raise NotImplementedError("Derived classes need to implement this.")
 
 
 _ID_REGEX = re.compile(r"([0-9]{15,20})$")
 
 
-class IDConverter(Converter):
+class IDConverter(Converter[T_co]):
     @staticmethod
     def _get_id_match(argument):
         return _ID_REGEX.match(argument)
 
 
-class SnowflakeConverter(IDConverter):
+class SnowflakeConverter(IDConverter[dis_snek.SnowflakeObject]):
     async def convert(
         self, ctx: dis_snek.MessageContext, argument: str
     ) -> dis_snek.SnowflakeObject:
@@ -110,10 +113,15 @@ class UserConverter(IDConverter):
         return result
 
 
-class ChannelConverter(IDConverter):
+class ChannelConverter(IDConverter[T_co]):
+    def _check(self, result: dis_snek.BaseChannel):
+        return True
+
     async def convert(
-        self, ctx: dis_snek.MessageContext, argument: str
-    ) -> dis_snek.TYPE_ALL_CHANNEL:
+        self,
+        ctx: dis_snek.MessageContext,
+        argument: str,
+    ) -> T_co:
         match = self._get_id_match(argument) or re.match(
             r"<#([0-9]{15,20})>$", argument
         )
@@ -130,78 +138,45 @@ class ChannelConverter(IDConverter):
         if not result:
             raise errors.BadArgument(f'Channel "{argument}" not found.')
 
-        return result
+        if self._check(result):
+            return result  # type: ignore
+
+        raise errors.BadArgument(f'Channel "{argument}" not found.')
 
 
-class TextChannelConverter(ChannelConverter):
-    async def convert(
-        self, ctx: dis_snek.MessageContext, argument: str
-    ) -> dis_snek.TYPE_MESSAGEABLE_CHANNEL:
-        result = await super().convert(ctx, argument)
-        if (
+class BaseChannelConverter(ChannelConverter[dis_snek.BaseChannel]):
+    pass
+
+
+class TextChannelConverter(ChannelConverter[dis_snek.TYPE_MESSAGEABLE_CHANNEL]):
+    def _check(self, result: dis_snek.BaseChannel):
+        return (
             isinstance(result.type, dis_snek.enums.ChannelTypes)
             and not result.type.voice
-        ) or result.type not in {2, 13}:
-            return result  # type: ignore
-
-        raise errors.BadArgument(f'Channel "{argument}" not found.')
+        ) or result.type not in {2, 13}
 
 
-class GuildChannelConverter(ChannelConverter):
-    async def convert(
-        self, ctx: dis_snek.MessageContext, argument: str
-    ) -> dis_snek.TYPE_GUILD_CHANNEL:
-        result = await super().convert(ctx, argument)
-        if (
-            isinstance(result.type, dis_snek.enums.ChannelTypes) and result.type.guild
-        ) or result.type not in {1, 3}:
-            return result  # type: ignore
-
-        raise errors.BadArgument(f'Channel "{argument}" not found.')
+class GuildChannelConverter(ChannelConverter[dis_snek.GuildChannel]):
+    def _check(self, result: dis_snek.BaseChannel):
+        return isinstance(result, dis_snek.GuildChannel)
 
 
-class GuildTextConverter(ChannelConverter):
-    async def convert(
-        self, ctx: dis_snek.MessageContext, argument: str
-    ) -> dis_snek.GuildText:
-        result = await super().convert(ctx, argument)
-        if (
-            isinstance(result.type, dis_snek.enums.ChannelTypes)
-            and result.type.value == 0
-        ) or result.type == 0:
-            return result  # type: ignore
-
-        raise errors.BadArgument(f'Channel "{argument}" not found.')
+class GuildTextConverter(ChannelConverter[dis_snek.GuildText]):
+    def _check(self, result: dis_snek.BaseChannel):
+        return isinstance(result, dis_snek.GuildText)
 
 
-class VoiceChannelConverter(ChannelConverter):
-    async def convert(
-        self, ctx: dis_snek.MessageContext, argument: str
-    ) -> dis_snek.TYPE_VOICE_CHANNEL:
-        result = await super().convert(ctx, argument)
-        if (
-            isinstance(result.type, dis_snek.enums.ChannelTypes) and result.type.voice
-        ) or result.type in {2, 13}:
-            return result  # type: ignore
-
-        raise errors.BadArgument(f'Channel "{argument}" not found.')
+class VoiceChannelConverter(ChannelConverter[dis_snek.VoiceChannel]):
+    def _check(self, result: dis_snek.BaseChannel):
+        return isinstance(result, dis_snek.VoiceChannel)
 
 
-class ThreadChannelConverter(ChannelConverter):
-    async def convert(
-        self, ctx: dis_snek.MessageContext, argument: str
-    ) -> dis_snek.TYPE_THREAD_CHANNEL:
-        result = await super().convert(ctx, argument)
-        if (
-            isinstance(result.type, dis_snek.enums.ChannelTypes)
-            and result.type.value in {10, 11, 12}
-        ) or result.type in {10, 11, 12}:
-            return result  # type: ignore
-
-        raise errors.BadArgument(f'Channel "{argument}" not found.')
+class ThreadChannelConverter(ChannelConverter[dis_snek.ThreadChannel]):
+    def _check(self, result: dis_snek.BaseChannel):
+        return isinstance(result, dis_snek.ThreadChannel)
 
 
-class RoleConverter(IDConverter):
+class RoleConverter(IDConverter[dis_snek.Role]):
     async def convert(
         self, ctx: dis_snek.MessageContext, argument: str
     ) -> dis_snek.Role:
@@ -230,7 +205,7 @@ class RoleConverter(IDConverter):
         return result
 
 
-class GuildConverter(IDConverter):
+class GuildConverter(IDConverter[dis_snek.Guild]):
     async def convert(
         self, ctx: dis_snek.MessageContext, argument: str
     ) -> dis_snek.Guild:
@@ -254,7 +229,7 @@ class GuildConverter(IDConverter):
         return result
 
 
-class EmojiConverter(IDConverter):
+class EmojiConverter(IDConverter[dis_snek.Emoji]):
     async def convert(
         self, ctx: dis_snek.MessageContext, argument: str
     ) -> dis_snek.Emoji:
@@ -273,7 +248,7 @@ class EmojiConverter(IDConverter):
         raise errors.BadArgument(f'Couldn\'t convert "{argument}" to Emoji.')
 
 
-class CustomEmojiConverter(IDConverter):
+class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
     async def convert(
         self, ctx: dis_snek.MessageContext, argument: str
     ) -> dis_snek.CustomEmoji:
@@ -300,11 +275,11 @@ class CustomEmojiConverter(IDConverter):
         return result
 
 
-SNEK_OBJECT_TO_CONVERTER: dict[type, typing.Any] = {
+SNEK_OBJECT_TO_CONVERTER: dict[type, Converter] = {
     dis_snek.SnowflakeObject: SnowflakeConverter,
     dis_snek.Member: MemberConverter,
     dis_snek.User: UserConverter,
-    dis_snek.BaseChannel: ChannelConverter,
+    dis_snek.BaseChannel: BaseChannelConverter,
     dis_snek.GuildChannel: GuildChannelConverter,
     dis_snek.GuildText: GuildTextConverter,
     dis_snek.VoiceChannel: VoiceChannelConverter,

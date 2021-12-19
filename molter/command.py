@@ -35,9 +35,9 @@ def _get_converter(
     anno: type,
 ) -> typing.Callable[[dis_snek.MessageContext, str], typing.Any]:  # type: ignore
     if converter := converters.SNEK_OBJECT_TO_CONVERTER.get(anno, None):
-        return converter().convert
+        return converter().convert  # type: ignore
     elif issubclass(anno, converters.Converter):
-        return anno().convert
+        return anno().convert  # type: ignore
     elif inspect.isfunction(anno):
         num_params = len(inspect.signature(anno).parameters.values())
         match num_params:
