@@ -1,5 +1,6 @@
-# Molter
-(WIP) Shedding a new skin on [Dis-Snek's](https://github.com/Discord-Snake-Pit/Dis-Snek) commands.
+# Molter - WIP
+Shedding a new skin on [Dis-Snek's](https://github.com/Discord-Snake-Pit/Dis-Snek) commands.
+
 Currently, its goals are to make message commands more similar to [discord.py's](https://github.com/Rapptz/discord.py) message commands.
 
 # Installing
