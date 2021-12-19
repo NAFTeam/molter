@@ -2,6 +2,7 @@ import functools
 import inspect
 import typing
 from types import NoneType
+from types import UnionType
 
 import attr
 import dis_snek
@@ -72,7 +73,7 @@ def _get_params(func: typing.Callable):
 
         anno = param.annotation
 
-        if typing.get_origin(anno) == typing.Union:
+        if typing.get_origin(anno) in {typing.Union, UnionType}:
             for arg in typing.get_args(anno):
                 if arg != NoneType:
                     converter = _get_converter(arg)
