@@ -32,7 +32,6 @@ class ArgsIterator:
 
     def __iter__(self):
         self.length = len(self.args)
-        self.index = 0
         return self
 
     def __next__(self):
@@ -52,6 +51,9 @@ class ArgsIterator:
         result = self.args[self.index - 1 : self.length + (count - 1)]
         self.index += count
         return result
+
+    def reset(self):
+        self.index = 0
 
 
 def _get_name(x: typing.Any):
