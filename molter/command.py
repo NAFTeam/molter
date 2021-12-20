@@ -231,7 +231,7 @@ class MolterCommand(dis_snek.MessageCommand):
             if param_index < len(self.params):
                 for param in self.params[param_index:]:
                     if param.default == dis_snek.const.MISSING:
-                        raise errors.BadArgument(f"Missing argument for {param.name}")
+                        raise errors.BadArgument(f"Missing argument for {param.name}.")
                     else:
                         if not param.consume_rest:
                             new_args.append(param.default)
