@@ -243,7 +243,7 @@ class EmojiConverter(IDConverter[dis_snek.Emoji]):
             emoji_name = match.group(2)
             emoji_id = int(match.group(3))
 
-            return dis_snek.Emoji(id=emoji_id, name=emoji_name, animated=emoji_animated)
+            return dis_snek.Emoji(id=emoji_id, name=emoji_name, animated=emoji_animated)  # type: ignore
 
         raise errors.BadArgument(f'Couldn\'t convert "{argument}" to Emoji.')
 
