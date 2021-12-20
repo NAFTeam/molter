@@ -82,6 +82,8 @@ def _get_converter(
         return converter().convert  # type: ignore
     elif inspect.isclass(anno) and issubclass(anno, converters.Converter):
         return anno().convert  # type: ignore
+    elif hasattr(anno, "convert") and inspect.isfunction(anno.convert):  # type: ignore
+        return anno.convert  # type: ignore
     elif inspect.isfunction(anno):
         num_params = len(inspect.signature(anno).parameters.values())
         match num_params:
