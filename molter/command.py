@@ -52,6 +52,9 @@ class ArgsIterator:
         self.index += count
         return result
 
+    def back(self, count: int = 1):
+        self.index -= count
+
     def reset(self):
         self.index = 0
 
@@ -141,6 +144,12 @@ def _get_params(func: typing.Callable):
                 cmd_params.append(cmd_param)
                 break
             case param.VAR_POSITIONAL:
+                if not cmd_param.default == dis_snek.const.MISSING:
+                    # there's a lot of parser ambiguities here, so i'd rather not
+                    raise ValueError(
+                        "Variable arguments cannot have default values or be Optional."
+                    )
+
                 cmd_param.variable = True
                 cmd_params.append(cmd_param)
                 break
@@ -155,6 +164,32 @@ async def maybe_coroutine(func: typing.Callable, *args, **kwargs):
         return await func(*args, **kwargs)
     else:
         return func(*args, **kwargs)
+
+
+async def _convert(param: CommandParameter, ctx: dis_snek.MessageContext, arg: str):
+    converted = dis_snek.const.MISSING
+    for converter in param.converters:
+        try:
+            converted = await maybe_coroutine(converter, ctx, arg)
+            break
+        except Exception as e:
+            if not param.union and param.default == dis_snek.const.MISSING:
+                if isinstance(e, errors.BadArgument):
+                    raise
+                raise errors.BadArgument(str(e))
+
+    used_default = False
+    if converted == dis_snek.const.MISSING:
+        if param.default != dis_snek.const.MISSING:
+            converted = param.default
+            used_default = True
+        else:
+            union_types = typing.get_args(param.type)
+            union_names = tuple(_get_name(t) for t in union_types)
+            union_types_str = ", ".join(union_names[:-1]) + f", or {union_names[-1]}"
+            raise errors.BadArgument(f"Could not convert {arg} into {union_types_str}.")
+
+    return converted, used_default
 
 
 @attr.s(
@@ -189,47 +224,23 @@ class MolterCommand(dis_snek.MessageCommand):
                     if param.consume_rest:
                         arg = " ".join(args.consume_rest())
                     if param.variable:
-                        # temp behavior until i decide what to do with this
-                        new_args.append(args.consume_rest())
+                        args_to_convert = args.consume_rest()
+                        new_arg = [
+                            await _convert(param, ctx, arg) for arg in args_to_convert
+                        ]
+                        new_arg = tuple(arg[0] for arg in new_arg)
+                        new_args.append(new_arg)
+                        param_index += 1
                         break
 
-                    converted = dis_snek.const.MISSING
-                    for converter in param.converters:
-                        try:
-                            converted = await maybe_coroutine(converter, ctx, arg)
-                            break
-                        except Exception as e:
-                            if (
-                                not param.union
-                                and param.default == dis_snek.const.MISSING
-                            ):
-                                if isinstance(e, errors.BadArgument):
-                                    raise
-                                raise errors.BadArgument(str(e))
-
-                    if converted == dis_snek.const.MISSING:
-                        if param.default != dis_snek.const.MISSING:
-                            converted = param.default
-                            if not param.consume_rest:
-                                new_args.append(converted)
-                            else:
-                                kwargs[param.name] = converted
-                            param_index += 1
-                        else:
-                            union_types = typing.get_args(param.type)
-                            union_names = tuple(_get_name(t) for t in union_types)
-                            union_types_str = (
-                                ", ".join(union_names[:-1]) + f", or {union_names[-1]}"
-                            )
-                            raise errors.BadArgument(
-                                f"Could not convert {arg} into {union_types_str}."
-                            )
+                    converted, used_default = await _convert(param, ctx, arg)
+                    if not param.consume_rest:
+                        new_args.append(converted)
                     else:
-                        if not param.consume_rest:
-                            new_args.append(converted)
-                        else:
-                            kwargs[param.name] = converted
-                        param_index += 1
+                        kwargs[param.name] = converted
+                    param_index += 1
+
+                    if not used_default:
                         break
 
             if param_index < len(self.params):
