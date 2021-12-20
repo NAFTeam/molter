@@ -203,6 +203,8 @@ class MolterCommand(dis_snek.MessageCommand):
                                 not param.union
                                 and param.default == dis_snek.const.MISSING
                             ):
+                                if isinstance(e, errors.BadArgument):
+                                    raise
                                 raise errors.BadArgument(str(e))
 
                     if converted == dis_snek.const.MISSING:
