@@ -23,6 +23,10 @@ class CommandParameter:
     variable: bool = attr.ib(default=False)
     consume_rest: bool = attr.ib(default=False)
 
+    @property
+    def optional(self) -> bool:
+        return self.default != dis_snek.const.MISSING
+
 
 @attr.s(slots=True)
 class ArgsIterator:
@@ -132,7 +136,7 @@ def _get_params(func: typing.Callable):
                 if arg != NoneType:
                     converter = _get_converter(arg, name)
                     cmd_param.converters.append(converter)
-                elif cmd_param.default == dis_snek.const.MISSING:  # d.py-like behavior
+                elif not cmd_param.optional:  # d.py-like behavior
                     cmd_param.default = None
         else:
             converter = _get_converter(anno, name)
@@ -144,7 +148,7 @@ def _get_params(func: typing.Callable):
                 cmd_params.append(cmd_param)
                 break
             case param.VAR_POSITIONAL:
-                if not cmd_param.default == dis_snek.const.MISSING:
+                if cmd_param.optional:
                     # there's a lot of parser ambiguities here, so i'd rather not
                     raise ValueError(
                         "Variable arguments cannot have default values or be Optional."
@@ -173,14 +177,14 @@ async def _convert(param: CommandParameter, ctx: dis_snek.MessageContext, arg: s
             converted = await maybe_coroutine(converter, ctx, arg)
             break
         except Exception as e:
-            if not param.union and param.default == dis_snek.const.MISSING:
+            if not param.union and not param.optional:
                 if isinstance(e, errors.BadArgument):
                     raise
                 raise errors.BadArgument(str(e))
 
     used_default = False
     if converted == dis_snek.const.MISSING:
-        if param.default != dis_snek.const.MISSING:
+        if param.optional:
             converted = param.default
             used_default = True
         else:
@@ -245,7 +249,7 @@ class MolterCommand(dis_snek.MessageCommand):
 
             if param_index < len(self.params):
                 for param in self.params[param_index:]:
-                    if param.default == dis_snek.const.MISSING:
+                    if not param.optional:
                         raise errors.BadArgument(f"Missing argument for {param.name}.")
                     else:
                         if not param.consume_rest:
