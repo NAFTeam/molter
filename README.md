@@ -40,4 +40,4 @@ def setup(bot):
 ## Note
 
 * This project is a work in progress - it is very unstable and potentially very broken. Basic testing has been done, but more is still required.
-* `Typing.Literal` and discord.py's `Greedy` have not been added yet. Similar features to them are planned to be added in the future.
+* `discord.py`'s `Greedy` have not been added yet. Similar features to them are planned to be added in the future.

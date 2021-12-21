@@ -6,6 +6,7 @@ from types import UnionType
 
 import attr
 import dis_snek
+from dis_snek.utils.input_utils import _quotes
 
 from . import converters
 from . import errors
@@ -91,6 +92,9 @@ def _get_converter(
         return anno().convert  # type: ignore
     elif hasattr(anno, "convert") and inspect.isfunction(anno.convert):  # type: ignore
         return anno.convert  # type: ignore
+    elif typing.get_origin(anno) is typing.Literal:
+        literals = typing.get_args(anno)
+        return converters.LiteralConverter(literals).convert
     elif inspect.isfunction(anno):
         num_params = len(inspect.signature(anno).parameters.values())
         match num_params:
@@ -163,6 +167,12 @@ def _get_params(func: typing.Callable):
     return cmd_params
 
 
+def _arg_fix(arg: str):
+    if arg[0] in _quotes.keys():
+        return arg[1:-1]
+    return arg
+
+
 async def maybe_coroutine(func: typing.Callable, *args, **kwargs):
     if inspect.iscoroutinefunction(func):
         return await func(*args, **kwargs)
@@ -191,7 +201,9 @@ async def _convert(param: CommandParameter, ctx: dis_snek.MessageContext, arg: s
             union_types = typing.get_args(param.type)
             union_names = tuple(_get_name(t) for t in union_types)
             union_types_str = ", ".join(union_names[:-1]) + f", or {union_names[-1]}"
-            raise errors.BadArgument(f"Could not convert {arg} into {union_types_str}.")
+            raise errors.BadArgument(
+                f'Could not convert "{arg}" into {union_types_str}.'
+            )
 
     return converted, used_default
 
@@ -218,7 +230,7 @@ class MolterCommand(dis_snek.MessageCommand):
         else:
             new_args: list[typing.Any] = []
             kwargs: dict[str, typing.Any] = {}
-            args = ArgsIterator(ctx.args)
+            args = ArgsIterator(tuple(_arg_fix(a) for a in ctx.args))
             param_index = 0
 
             for arg in args:

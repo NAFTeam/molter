@@ -14,6 +14,27 @@ class Converter(typing.Protocol[T_co]):
         raise NotImplementedError("Derived classes need to implement this.")
 
 
+class LiteralConverter(Converter):
+    values: typing.Dict
+
+    def __init__(self, args: typing.Any):
+        self.values = {arg: type(arg) for arg in args}
+
+    async def convert(self, ctx: dis_snek.MessageContext, argument: str):
+        for arg, converter in self.values.items():
+            try:
+                if arg == converter(argument):
+                    return argument
+            except Exception:
+                continue
+
+        literals_list = [str(a) for a in self.values.keys()]
+        literals_str = ", ".join(literals_list[:-1]) + f", or {literals_list[-1]}"
+        raise errors.BadArgument(
+            f'Could not convert "{argument}" into one of {literals_str}.'
+        )
+
+
 _ID_REGEX = re.compile(r"([0-9]{15,20})$")
 
 
