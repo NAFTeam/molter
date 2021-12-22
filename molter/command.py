@@ -106,7 +106,7 @@ def _get_converter(
             case 0:
                 return lambda ctx, arg: anno()
             case _:
-                errors.BadArgument(
+                ValueError(
                     f"{_get_name(anno)} for {name} has more than 2 arguments, which is"
                     " unsupported."
                 )
@@ -120,13 +120,11 @@ def _get_converter(
 
 def _greedy_parse(greedy: converters.Greedy, param: inspect.Parameter):
     if param.kind in {param.KEYWORD_ONLY, param.VAR_POSITIONAL}:
-        raise errors.BadArgument(
-            "Greedy[...] cannot be a variable or keyword-only argument."
-        )
+        raise ValueError("Greedy[...] cannot be a variable or keyword-only argument.")
 
     arg = typing.get_args(greedy)[0]
     if arg in {NoneType, str}:
-        raise errors.BadArgument(f"Greedy[{_get_name(arg)}] is invalid.")
+        raise ValueError(f"Greedy[{_get_name(arg)}] is invalid.")
 
     if (
         typing.get_origin(arg)
@@ -136,7 +134,7 @@ def _greedy_parse(greedy: converters.Greedy, param: inspect.Parameter):
         }
         and NoneType in typing.get_args(arg)
     ):
-        raise errors.BadArgument(f"Greedy[{repr(arg)}] is invalid.")
+        raise ValueError(f"Greedy[{repr(arg)}] is invalid.")
 
     return arg
 
