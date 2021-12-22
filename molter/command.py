@@ -144,7 +144,8 @@ def _greedy_parse(greedy: converters.Greedy, param: inspect.Parameter):
 def _get_params(func: typing.Callable):
     cmd_params: list[CommandParameter] = []
 
-    # forgive me, but this is the only reliable way i can find this out
+    # we need to ignore parameters like self and ctx, so this is the easiest way
+    # forgive me, but this is the only reliable way i can find out if the function...
     if "." in func.__qualname__:  # is part of a class
         callback = functools.partial(func, None, None)
     else:
