@@ -5,7 +5,7 @@
 # Molter - WIP
 Shedding a new skin on [Dis-Snek's](https://github.com/Discord-Snake-Pit/Dis-Snek) commands.
 
-Currently, its goals are to make message commands more similar to [discord.py's](https://github.com/Rapptz/discord.py) message commands.
+Currently, its goals are to make message commands more similar (not exactly the same!) to [discord.py's](https://github.com/Rapptz/discord.py) message commands.
 
 # Installing
 ```sh
@@ -39,5 +39,6 @@ def setup(bot):
 
 ## Note
 
-* This project is a work in progress - it is very unstable and potentially very broken. Basic testing has been done, but more is still required.
-* `discord.py`'s `Greedy` have not been added yet. Similar features to them are planned to be added in the future.
+* This project is a work in progress - it *is* unstable. Basic testing *has* been done, but more is still required.
+* `discord.py`'s `FlagConverter` and potentially other features are not in this. If they will be added is to be seen.
+* `molter` is *not* meant to be 1:1 with `discord.py`'s command parser even if it may seem like it. Clearer behavior was prioritied over some weird features of it.
