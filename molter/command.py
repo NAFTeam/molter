@@ -144,7 +144,11 @@ def _greedy_parse(greedy: converters.Greedy, param: inspect.Parameter):
 def _get_params(func: typing.Callable):
     cmd_params: list[CommandParameter] = []
 
-    callback = functools.partial(func, dis_snek.MessageContext())
+    # forgive me, but this is the only reliable way i can find this out
+    if "." in func.__qualname__:  # is part of a class
+        callback = functools.partial(func, None, None)
+    else:
+        callback = functools.partial(func, None)
 
     params = inspect.signature(callback).parameters
     for name, param in params.items():
@@ -271,16 +275,12 @@ async def _greedy_convert(
 )
 class MolterCommand(dis_snek.MessageCommand):
     params: list[CommandParameter] = attr.ib(
-        metadata=dis_snek.utils.docs("The paramters of the command."), default=None
+        metadata=dis_snek.utils.docs("The paramters of the command.")
     )
 
     async def call_callback(
         self, callback: typing.Callable, ctx: dis_snek.MessageContext
     ):
-        if not self.params:
-            # if we did this earlier, we would have to deal with self
-            # and im too lazy to deal with self
-            self.params = _get_params(self.callback)
 
         # sourcery skip: remove-empty-nested-block, remove-redundant-if, remove-unnecessary-else
         if len(self.params) == 0:
@@ -359,7 +359,9 @@ def message_command(
     def wrapper(func):
         if not inspect.iscoroutinefunction(func):
             raise ValueError("Commands must be coroutines.")
-        return MolterCommand(name=name or func.__name__, callback=func)
+        return MolterCommand(
+            name=name or func.__name__, callback=func, params=_get_params(func)
+        )
 
     return wrapper
 
