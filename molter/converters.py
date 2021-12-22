@@ -59,7 +59,24 @@ class SnowflakeConverter(IDConverter[dis_snek.SnowflakeObject]):
         return dis_snek.SnowflakeObject(int(match.group(1)))  # type: ignore
 
 
-class MemberConverter(IDConverter):
+class MemberConverter(IDConverter[dis_snek.Member]):
+    def _get_member_from_list(self, members: list[dis_snek.Member], argument: str):
+        result = None
+        if len(argument) > 5 and argument[-5] == "#":
+            result = next((m for m in members if m.user.tag == argument), None)
+
+        if not result:
+            result = next(
+                (
+                    m
+                    for m in members
+                    if m.display_name == argument or m.user.username == argument
+                ),
+                None,
+            )
+
+        return result
+
     async def convert(
         self, ctx: dis_snek.MessageContext, argument: str
     ) -> dis_snek.Member:
@@ -77,20 +94,14 @@ class MemberConverter(IDConverter):
             except dis_snek.HTTPException:
                 pass
         elif ctx.guild.chunked:
+            result = self._get_member_from_list(ctx.guild.members, argument)
+        else:
+            query = argument
             if len(argument) > 5 and argument[-5] == "#":
-                result = next(
-                    (m for m in ctx.guild.members if m.user.tag == argument), None
-                )
+                query, _, _ = argument.rpartition("#")
 
-            if not result:
-                result = next(
-                    (
-                        m
-                        for m in ctx.guild.members
-                        if m.display_name == argument or m.user.username == argument
-                    ),
-                    None,
-                )
+            members = await ctx.guild.search_members(query, limit=100)
+            result = self._get_member_from_list(members, argument)
 
         if not result:
             raise errors.BadArgument(f'Member "{argument}" not found.')
@@ -98,7 +109,7 @@ class MemberConverter(IDConverter):
         return result
 
 
-class UserConverter(IDConverter):
+class UserConverter(IDConverter[dis_snek.User]):
     async def convert(
         self, ctx: dis_snek.MessageContext, argument: str
     ) -> dis_snek.User:
