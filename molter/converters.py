@@ -5,6 +5,7 @@ import dis_snek
 
 from . import errors
 
+T = typing.TypeVar("T")
 T_co = typing.TypeVar("T_co", covariant=True)
 
 
@@ -294,6 +295,13 @@ class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
             raise errors.BadArgument(f'Emoji "{argument}" not found.')
 
         return result
+
+
+class Greedy(typing.List[T]):
+    # this class doesn't actually do a whole lot
+    # it's more or less simply a note to the parameter
+    # getter
+    pass
 
 
 SNEK_OBJECT_TO_CONVERTER: dict[type, Converter] = {

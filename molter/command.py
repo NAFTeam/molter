@@ -20,6 +20,7 @@ class CommandParameter:
     converters: list[
         typing.Callable[[dis_snek.MessageContext, str], typing.Any]
     ] = attr.ib(factory=list)
+    greedy: bool = attr.ib(default=False)
     union: bool = attr.ib(default=False)
     variable: bool = attr.ib(default=False)
     consume_rest: bool = attr.ib(default=False)
@@ -117,6 +118,29 @@ def _get_converter(
         return lambda ctx, arg: anno(arg)
 
 
+def _greedy_parse(greedy: converters.Greedy, param: inspect.Parameter):
+    if param.kind in {param.KEYWORD_ONLY, param.VAR_POSITIONAL}:
+        raise errors.BadArgument(
+            "Greedy[...] cannot be a variable or keyword-only argument."
+        )
+
+    arg = typing.get_args(greedy)[0]
+    if arg in {NoneType, str}:
+        raise errors.BadArgument(f"Greedy[{_get_name(arg)}] is invalid.")
+
+    if (
+        typing.get_origin(arg)
+        in {
+            typing.Union,
+            UnionType,
+        }
+        and NoneType in typing.get_args(arg)
+    ):
+        raise errors.BadArgument(f"Greedy[{repr(arg)}] is invalid.")
+
+    return arg
+
+
 def _get_params(func: typing.Callable):
     cmd_params: list[CommandParameter] = []
 
@@ -133,6 +157,10 @@ def _get_params(func: typing.Callable):
         )
 
         cmd_param.type = anno = param.annotation
+
+        if typing.get_origin(anno) == converters.Greedy:
+            anno = _greedy_parse(anno, param)
+            cmd_param.greedy = True
 
         if typing.get_origin(anno) in {typing.Union, UnionType}:
             cmd_param.union = True
@@ -208,6 +236,36 @@ async def _convert(param: CommandParameter, ctx: dis_snek.MessageContext, arg: s
     return converted, used_default
 
 
+async def _greedy_convert(
+    param: CommandParameter, ctx: dis_snek.MessageContext, args: ArgsIterator
+):
+    args.back()
+    broke_off = False
+    greedy_args = []
+
+    for arg in args:
+        try:
+            greedy_arg, used_default = await _convert(param, ctx, arg)
+
+            if used_default:
+                raise errors.BadArgument()  # does it matter?
+
+            greedy_args.append(greedy_arg)
+        except errors.BadArgument:
+            broke_off = True
+            break
+
+    if not greedy_args:
+        if param.default:
+            greedy_args = param.default  # im sorry, typehinters
+        else:
+            raise errors.BadArgument(
+                f"Failed to find any arguments for {repr(param.type)}."
+            )
+
+    return greedy_args, broke_off
+
+
 @attr.s(
     slots=True, kw_only=True, on_setattr=[attr.setters.convert, attr.setters.validate]
 )
@@ -239,6 +297,7 @@ class MolterCommand(dis_snek.MessageCommand):
 
                     if param.consume_rest:
                         arg = " ".join(args.consume_rest())
+
                     if param.variable:
                         args_to_convert = args.consume_rest()
                         new_arg = [
@@ -248,6 +307,19 @@ class MolterCommand(dis_snek.MessageCommand):
                         new_args.append(new_arg)
                         param_index += 1
                         break
+
+                    if param.greedy:
+                        greedy_args, broke_off = await _greedy_convert(param, ctx, args)
+
+                        new_args.append(greedy_args)
+                        param_index += 1
+                        if broke_off:
+                            args.back()
+
+                        if param.default:
+                            continue
+                        else:
+                            break
 
                     converted, used_default = await _convert(param, ctx, arg)
                     if not param.consume_rest:
