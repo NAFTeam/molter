@@ -53,16 +53,15 @@ class ArgsIterator:
         self.index = self.length
         return result
 
-    def forward(self, count: int = 1):
-        result = self.args[self.index - 1 : self.length + (count - 1)]
-        self.index += count
-        return result
-
     def back(self, count: int = 1):
         self.index -= count
 
     def reset(self):
         self.index = 0
+
+    @property
+    def finished(self):
+        return self.index >= self.length
 
 
 def _get_name(x: typing.Any):
@@ -276,6 +275,26 @@ class MolterCommand(dis_snek.MessageCommand):
     params: list[CommandParameter] = attr.ib(
         metadata=dis_snek.utils.docs("The paramters of the command.")
     )
+    help: typing.Optional[str] = attr.ib(
+        default=None,
+        metadata=dis_snek.utils.docs("The long help text for the command."),
+    )
+    brief: typing.Optional[str] = attr.ib(
+        default=None,
+        metadata=dis_snek.utils.docs("The short help text for the command."),
+    )
+    hidden: bool = attr.ib(
+        metadata=dis_snek.utils.docs(
+            "If `True`, the default help command does not show this in the help output."
+        )
+    )  # means nothing rn
+    ignore_extra: bool = attr.ib(
+        metadata=dis_snek.utils.docs(
+            "If `True`, ignores extraneous strings passed to a command if all its"
+            " requirements are met (e.g. ?foo a b c when only expecting a and b)."
+            " Otherwise, an error is raised. Defaults to True."
+        )
+    )
 
     async def call_callback(
         self, callback: typing.Callable, ctx: dis_snek.MessageContext
@@ -340,26 +359,54 @@ class MolterCommand(dis_snek.MessageCommand):
                         else:
                             kwargs[param.name] = param.default
                             break
+            elif not self.ignore_extra and not args.finished:
+                raise errors.BadArgument(f"Too many arguments passed to {self.name}")
 
             return await callback(ctx, *new_args, **kwargs)
 
 
 def message_command(
+    *,
     name: str = None,
+    help: str = None,
+    brief: str = None,
+    enabled: bool = True,
+    hidden: bool = False,
+    ignore_extra: bool = True,
 ):
     """
-    A decorator to declare a coroutine as a message command.
+    A decorator to declare a coroutine as a Molter message command.
     parameters:
         name: The name of the command, defaults to the name of the coroutine
     returns:
-        Message Command Object
+        Molter Message Command Object
     """
 
     def wrapper(func):
         if not inspect.iscoroutinefunction(func):
             raise ValueError("Commands must be coroutines.")
+
+        if help is not None:
+            cmd_help = inspect.cleandoc(help)
+        else:
+            cmd_help = inspect.getdoc(func)
+            if isinstance(help, bytes):
+                cmd_help = help.decode("utf-8")
+
+        if brief is not None:
+            cmd_brief = brief
+        elif cmd_help is not None:
+            cmd_brief = cmd_help.splitlines()[0]
+
         return MolterCommand(
-            name=name or func.__name__, callback=func, params=_get_params(func)
+            name=name or func.__name__,
+            callback=func,
+            help=cmd_help,
+            brief=cmd_brief,  # type: ignore
+            enabled=enabled,
+            hidden=hidden,
+            ignore_extra=ignore_extra,
+            params=_get_params(func),
         )
 
     return wrapper
