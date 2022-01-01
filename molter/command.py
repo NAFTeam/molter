@@ -360,7 +360,7 @@ class MolterCommand(dis_snek.MessageCommand):
                             kwargs[param.name] = param.default
                             break
             elif not self.ignore_extra and not args.finished:
-                raise errors.BadArgument(f"Too many arguments passed to {self.name}")
+                raise errors.BadArgument(f"Too many arguments passed to {self.name}.")
 
             return await callback(ctx, *new_args, **kwargs)
 
