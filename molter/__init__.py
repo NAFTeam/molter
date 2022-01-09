@@ -11,3 +11,4 @@ __version__ = "0.4.0"
 from .command import *
 from .converters import *
 from .errors import *
+from .overrides import *

@@ -275,13 +275,11 @@ class MolterCommand(dis_snek.MessageCommand):
     params: list[CommandParameter] = attr.ib(
         metadata=dis_snek.utils.docs("The paramters of the command.")
     )
-    help: typing.Optional[str] = attr.ib(
-        default=None,
-        metadata=dis_snek.utils.docs("The long help text for the command."),
-    )
-    brief: typing.Optional[str] = attr.ib(
-        default=None,
-        metadata=dis_snek.utils.docs("The short help text for the command."),
+    aliases: list[str] = attr.ib(
+        metadata=dis_snek.utils.docs(
+            "The list of aliases the command can be invoked under. Requires one of the"
+            " override classes to work."
+        )
     )
     hidden: bool = attr.ib(
         metadata=dis_snek.utils.docs(
@@ -294,6 +292,14 @@ class MolterCommand(dis_snek.MessageCommand):
             " requirements are met (e.g. ?foo a b c when only expecting a and b)."
             " Otherwise, an error is raised. Defaults to True."
         )
+    )
+    help: typing.Optional[str] = attr.ib(
+        default=None,
+        metadata=dis_snek.utils.docs("The long help text for the command."),
+    )
+    brief: typing.Optional[str] = attr.ib(
+        default=None,
+        metadata=dis_snek.utils.docs("The short help text for the command."),
     )
 
     async def call_callback(
@@ -366,8 +372,9 @@ class MolterCommand(dis_snek.MessageCommand):
 
 
 def message_command(
-    *,
     name: str = None,
+    *,
+    aliases: list[str] = None,
     help: str = None,
     brief: str = None,
     enabled: bool = True,
@@ -398,9 +405,12 @@ def message_command(
         elif cmd_help is not None:
             cmd_brief = cmd_help.splitlines()[0]
 
+        cmd_aliases = [] if not aliases else aliases
+
         return MolterCommand(
             name=name or func.__name__,
             callback=func,
+            aliases=cmd_aliases,
             help=cmd_help,
             brief=cmd_brief,  # type: ignore
             enabled=enabled,
