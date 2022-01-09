@@ -62,7 +62,7 @@ class MolterScale(dis_snek.Scale):
                     for alias in val.aliases:
                         if alias not in bot.commands:
                             bot.commands[alias] = val
-                            return
+                            continue
                         raise ValueError(
                             "Duplicate Command! Multiple commands share the name/alias"
                             f" `{alias}`"
@@ -106,7 +106,7 @@ class MolterSnake(dis_snek.Snake):
             for alias in command.aliases:
                 if alias not in self.commands:
                     self.commands[alias] = command
-                    return
+                    continue
                 raise ValueError(
                     "Duplicate Command! Multiple commands share the name/alias"
                     f" `{alias}`"
