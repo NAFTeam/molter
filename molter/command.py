@@ -404,6 +404,8 @@ def message_command(
             cmd_brief = brief
         elif cmd_help is not None:
             cmd_brief = cmd_help.splitlines()[0]
+        else:
+            cmd_brief = None
 
         cmd_aliases = [] if not aliases else aliases
 
