@@ -40,5 +40,6 @@ def setup(bot):
 ## Note
 
 * This project is a work in progress - it *is* unstable. Basic testing *has* been done, but more is still required.
+* This hasn't been merged with `Dis-Snek` yet *because* it's unstable. Don't worry, I plan to merge these changes with `Dis-Snek` once this is ready!
 * `discord.py`'s `FlagConverter` and potentially other features are not in this. If they will be added is to be seen.
 * `molter` is *not* meant to be 1:1 with `discord.py`'s command parser even if it may seem like it. There are some differences, usually done for clarity's sake.
