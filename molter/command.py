@@ -1,3 +1,4 @@
+import collections
 import functools
 import inspect
 import typing
@@ -68,9 +69,7 @@ def _get_name(x: typing.Any):
     try:
         return x.__name__
     except AttributeError:
-        if hasattr(x, "__origin__"):
-            return repr(x)
-        return x.__class__.__name__
+        return repr(x) if hasattr(x, "__origin__") else x.__class__.__name__
 
 
 def _convert_to_bool(argument: str) -> bool:
@@ -269,43 +268,181 @@ async def _greedy_convert(
 
 
 @attr.s(
-    slots=True, kw_only=True, on_setattr=[attr.setters.convert, attr.setters.validate]
+    slots=True,
+    kw_only=True,
+    on_setattr=[attr.setters.convert, attr.setters.validate],
 )
 class MolterCommand(dis_snek.MessageCommand):
     params: list[CommandParameter] = attr.ib(
-        metadata=dis_snek.utils.docs("The paramters of the command.")
+        metadata=dis_snek.utils.docs("The paramters of the command."),
     )
     aliases: list[str] = attr.ib(
         metadata=dis_snek.utils.docs(
             "The list of aliases the command can be invoked under. Requires one of the"
             " override classes to work."
-        )
+        ),
+        factory=list,
     )
     hidden: bool = attr.ib(
         metadata=dis_snek.utils.docs(
             "If `True`, the default help command does not show this in the help output."
-        )
-    )  # means nothing rn
+        ),
+        default=False,
+    )
     ignore_extra: bool = attr.ib(
         metadata=dis_snek.utils.docs(
             "If `True`, ignores extraneous strings passed to a command if all its"
             " requirements are met (e.g. ?foo a b c when only expecting a and b)."
             " Otherwise, an error is raised. Defaults to True."
-        )
+        ),
+        default=True,
+    )
+    hierarchical_checking: bool = attr.ib(
+        metadata=dis_snek.utils.docs(
+            "If `True` and if the base of a subcommand, every subcommand underneath it"
+            " will run this command's checks before its own. Otherwise, only the"
+            " subcommand's checks are checked."
+        ),
+        default=True,
     )
     help: typing.Optional[str] = attr.ib(
-        default=None,
         metadata=dis_snek.utils.docs("The long help text for the command."),
     )
     brief: typing.Optional[str] = attr.ib(
-        default=None,
         metadata=dis_snek.utils.docs("The short help text for the command."),
     )
+    parent: typing.Optional["MolterCommand"] = attr.ib(
+        metadata=dis_snek.utils.docs("The parent command, if applicable."),
+        default=None,
+    )
+    command_dict: dict[str, "MolterCommand"] = attr.ib(
+        metadata=dis_snek.utils.docs(
+            "A dict of a subcommand's name and the subcommand for this command."
+        ),
+        factory=dict,
+    )
+
+    @params.default  # type: ignore
+    def _fill_params(self):
+        return _get_params(self.callback)
+
+    def __attrs_post_init__(self) -> None:
+        super().__attrs_post_init__()  # we want checks to work
+
+        # we have to do this afterwards as these rely on the callback
+        # and its own value, which is impossible to get with attrs
+        # methods, i think
+
+        if self.help:
+            self.help = inspect.cleandoc(self.help)
+        else:
+            self.help = inspect.getdoc(self.callback)
+            if isinstance(self.help, bytes):
+                self.help = self.help.decode("utf-8")
+
+        if self.brief is None:
+            self.brief = self.help.splitlines()[0] if self.help is not None else None
+
+    @property
+    def qualified_name(self):
+        name_deq = collections.deque()
+        command = self
+
+        while command.parent is not None:
+            name_deq.appendleft(command.name)
+            command = command.parent
+
+        return " ".join(name_deq)
+
+    @property
+    def all_commands(self):
+        return set(self.command_dict.values())
+
+    def add_command(self, cmd: "MolterCommand"):
+        cmd_names = frozenset(
+            self.command_dict.keys()
+        )  # keys is unnecessary, but clearer
+
+        if cmd.name in cmd_names:
+            raise ValueError(
+                "Duplicate Command! Multiple commands share the name/alias"
+                f" `{self.qualified_name} {cmd.name}`"
+            )
+        self.command_dict[cmd.name] = cmd
+
+        for alias in cmd.aliases:
+            if alias in cmd_names:
+                raise ValueError(
+                    "Duplicate Command! Multiple commands share the name/alias"
+                    f" `{self.qualified_name} {cmd.name}`"
+                )
+            self.command_dict[alias] = cmd
+
+    def remove_command(self, name: str):
+        command = self.command_dict.pop(name)
+
+        if command is None or name in command.aliases:
+            return
+
+        for alias in command.aliases:
+            self.command_dict.pop(alias)
+
+    def get_command(self, name: str):
+        if " " not in name:
+            return self.command_dict.get(name)
+
+        names = name.split()
+        if not names:
+            return None
+
+        cmd = self.command_dict.get(name[0])
+        if not cmd or not cmd.command_dict:
+            return cmd
+
+        for name in names[1:]:
+            try:
+                cmd = cmd.command_dict[name]
+            except (AttributeError, KeyError):
+                return None
+
+        return cmd
+
+    def command(
+        self,
+        name: str = None,
+        *,
+        aliases: list[str] = None,
+        help: str = None,
+        brief: str = None,
+        enabled: bool = True,
+        hidden: bool = False,
+        ignore_extra: bool = True,
+        hierarchical_checking: bool = True,
+    ):
+        def wrapper(func):
+            cmd = MolterCommand(  # type: ignore
+                callback=func,
+                name=name or func.__name__,
+                aliases=aliases or [],
+                help=help,
+                brief=brief,
+                enabled=enabled,
+                hidden=hidden,
+                ignore_extra=ignore_extra,
+                hierarchical_checking=hierarchical_checking,
+                parent=self,
+            )
+            self.add_command(cmd)
+            return cmd
+
+        return wrapper
+
+    message_command = command
+    msg_command = command
 
     async def call_callback(
         self, callback: typing.Callable, ctx: dis_snek.MessageContext
     ):
-
         # sourcery skip: remove-empty-nested-block, remove-redundant-if, remove-unnecessary-else
         if len(self.params) == 0:
             return await callback(ctx)
@@ -380,6 +517,7 @@ def message_command(
     enabled: bool = True,
     hidden: bool = False,
     ignore_extra: bool = True,
+    hierarchical_checking: bool = True,
 ):
     """
     A decorator to declare a coroutine as a Molter message command.
@@ -390,35 +528,16 @@ def message_command(
     """
 
     def wrapper(func):
-        if not inspect.iscoroutinefunction(func):
-            raise ValueError("Commands must be coroutines.")
-
-        if help is not None:
-            cmd_help = inspect.cleandoc(help)
-        else:
-            cmd_help = inspect.getdoc(func)
-            if isinstance(help, bytes):
-                cmd_help = help.decode("utf-8")
-
-        if brief is not None:
-            cmd_brief = brief
-        elif cmd_help is not None:
-            cmd_brief = cmd_help.splitlines()[0]
-        else:
-            cmd_brief = None
-
-        cmd_aliases = [] if not aliases else aliases
-
-        return MolterCommand(
-            name=name or func.__name__,
+        return MolterCommand(  # type: ignore
             callback=func,
-            aliases=cmd_aliases,
-            help=cmd_help,
-            brief=cmd_brief,  # type: ignore
+            name=name or func.__name__,
+            aliases=aliases or [],
+            help=help,
+            brief=brief,
             enabled=enabled,
             hidden=hidden,
             ignore_extra=ignore_extra,
-            params=_get_params(func),
+            hierarchical_checking=hierarchical_checking,
         )
 
     return wrapper
