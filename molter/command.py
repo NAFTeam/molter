@@ -418,6 +418,44 @@ class MolterCommand(dis_snek.MessageCommand):
         ignore_extra: bool = True,
         hierarchical_checking: bool = True,
     ):
+        """
+        A decorator to declare a subcommand for a Molter message command.
+
+        Parameters:
+            name (`str`, optional): The name of the command.
+            Defaults to the name of the coroutine.
+
+            aliases (`list[str]`, optional): The list of aliases the
+            command can be invoked under.
+            Requires one of the override classes to work.
+
+            help (`str`, optional): The long help text for the command.
+            Defaults to the docstring of the coroutine, if there is one.
+
+            brief (`str`, optional): The short help text for the command.
+            Defaults to the first line of the help text, if there is one.
+
+            enabled (`bool`, optional): Whether this command can be run
+            at all. Defaults to True.
+
+            hidden (`bool`, optional): If `True`, the default help
+            command (when it is added) does not show this in the help
+            output. Defaults to False.
+
+            ignore_extra (`bool`, optional): If `True`, ignores extraneous
+            strings passed to a command if all its requirements are met
+            (e.g. ?foo a b c when only expecting a and b).
+            Otherwise, an error is raised. Defaults to True.
+
+            hierarchical_checking (`bool`, optional): If `True` and if the
+            base of a subcommand, every subcommand underneath it will run
+            this command's checks before its own. Otherwise, only the
+            subcommand's checks are checked. Defaults to True.
+
+        Returns:
+            `molter.MolterCommand`: The command object.
+        """
+
         def wrapper(func):
             cmd = MolterCommand(  # type: ignore
                 callback=func,
@@ -519,10 +557,40 @@ def message_command(
 ):
     """
     A decorator to declare a coroutine as a Molter message command.
-    parameters:
-        name: The name of the command, defaults to the name of the coroutine
-    returns:
-        Molter Message Command Object
+
+    Parameters:
+        name (`str`, optional): The name of the command.
+        Defaults to the name of the coroutine.
+
+        aliases (`list[str]`, optional): The list of aliases the
+        command can be invoked under.
+        Requires one of the override classes to work.
+
+        help (`str`, optional): The long help text for the command.
+        Defaults to the docstring of the coroutine, if there is one.
+
+        brief (`str`, optional): The short help text for the command.
+        Defaults to the first line of the help text, if there is one.
+
+        enabled (`bool`, optional): Whether this command can be run
+        at all. Defaults to True.
+
+        hidden (`bool`, optional): If `True`, the default help
+        command (when it is added) does not show this in the help
+        output. Defaults to False.
+
+        ignore_extra (`bool`, optional): If `True`, ignores extraneous
+        strings passed to a command if all its requirements are met
+        (e.g. ?foo a b c when only expecting a and b).
+        Otherwise, an error is raised. Defaults to True.
+
+        hierarchical_checking (`bool`, optional): If `True` and if the
+        base of a subcommand, every subcommand underneath it will run
+        this command's checks before its own. Otherwise, only the
+        subcommand's checks are checked. Defaults to True.
+
+    Returns:
+        `molter.MolterCommand`: The command object.
     """
 
     def wrapper(func):
