@@ -359,10 +359,9 @@ class MolterCommand(dis_snek.MessageCommand):
         return set(self.command_dict.values())
 
     def add_command(self, cmd: "MolterCommand"):
-        cmd_names = frozenset(
-            self.command_dict.keys()
-        )  # keys is unnecessary, but clearer
+        cmd.parent = self  # just so we know this is a subcommand
 
+        cmd_names = frozenset(self.command_dict)
         if cmd.name in cmd_names:
             raise ValueError(
                 "Duplicate Command! Multiple commands share the name/alias"
@@ -430,7 +429,6 @@ class MolterCommand(dis_snek.MessageCommand):
                 hidden=hidden,
                 ignore_extra=ignore_extra,
                 hierarchical_checking=hierarchical_checking,
-                parent=self,
             )
             self.add_command(cmd)
             return cmd
