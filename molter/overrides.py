@@ -1,3 +1,4 @@
+import logging
 import typing
 
 import dis_snek
@@ -5,11 +6,44 @@ import dis_snek
 from .command import MolterCommand
 
 
+log = logging.getLogger(dis_snek.const.logger_name)
+
+
+class MolterScale(dis_snek.Scale):
+    """A custom subclass of `dis_snek.Scale` that properly unloads Molter commands if aliases are used.
+    Use this alongside `MolterSnake` for the best results.
+    Be careful about overriding the `shed` functions, as doing so improperly will break aliases unloading.
+    """
+
+    def shed(self) -> None:
+        """Called when this Scale is being removed."""
+        for func in self._commands:
+            if isinstance(func, dis_snek.ComponentCommand):
+                for listener in func.listeners:
+                    self.bot._component_callbacks.pop(listener)
+            elif isinstance(func, dis_snek.InteractionCommand):
+                for scope in func.scopes:
+                    if self.bot.interactions.get(scope):
+                        self.bot.interactions[scope].pop(func.resolved_name, [])
+            elif isinstance(func, dis_snek.MessageCommand):
+                self.bot.commands.pop(func.name, None)
+
+                if isinstance(func, MolterCommand):
+                    for alias in func.aliases:
+                        self.bot.commands.pop(alias, None)
+
+        for func in self.listeners:
+            self.bot.listeners[func.event].remove(func)
+
+        self.bot.scales.pop(self.name, None)
+        log.debug(f"{self.name} has been shed")
+
+
 class MolterSnake(dis_snek.Snake):
     """
     A custom subclass of `dis_snek.Snake` that allows you to use aliases and subcommands with Molter commands.
     This does NOT support normal message commands built in the library - the bot will error out if so.
-    One must be careful about overriding the `add_message_command` and `_dispatch_msg_commands` functions
+    Be careful about overriding the `add_message_command` and `_dispatch_msg_commands` functions
     in the class, as doing so improperly will break alias and/or subcommand support.
     """
 
