@@ -1,9 +1,10 @@
 import typing
 
 import dis_snek
+from dis_snek.client.errors import CommandException
 
 
-class BadArgument(dis_snek.CommandException):
+class BadArgument(CommandException):
     def __init__(self, message: typing.Optional[str] = None, *args: typing.Any) -> None:
         if message is not None:
             message = dis_snek.utils.escape_mentions(message)
