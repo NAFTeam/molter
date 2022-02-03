@@ -325,7 +325,7 @@ SNEK_OBJECT_TO_CONVERTER: dict[type, Converter] = {
     dis_snek.BaseChannel: BaseChannelConverter,
     dis_snek.GuildChannel: GuildChannelConverter,
     dis_snek.GuildText: GuildTextConverter,
-    dis_snek.VoiceChannel: VoiceChannelConverter,
+    VoiceChannel: VoiceChannelConverter,
     dis_snek.ThreadChannel: ThreadChannelConverter,
     dis_snek.Role: RoleConverter,
     dis_snek.Guild: GuildConverter,
