@@ -14,29 +14,29 @@ from . import converters
 from . import errors
 
 
-@attr.s(slots=True)
+@attr.define(slots=True)
 class CommandParameter:
-    name: str = attr.ib(default=None)
-    default: typing.Optional[typing.Any] = attr.ib(default=None)
-    type: type = attr.ib(default=None)
+    name: str = attr.field(default=None)
+    default: typing.Optional[typing.Any] = attr.field(default=None)
+    type: type = attr.field(default=None)
     converters: list[
         typing.Callable[[dis_snek.MessageContext, str], typing.Any]
-    ] = attr.ib(factory=list)
-    greedy: bool = attr.ib(default=False)
-    union: bool = attr.ib(default=False)
-    variable: bool = attr.ib(default=False)
-    consume_rest: bool = attr.ib(default=False)
+    ] = attr.field(factory=list)
+    greedy: bool = attr.field(default=False)
+    union: bool = attr.field(default=False)
+    variable: bool = attr.field(default=False)
+    consume_rest: bool = attr.field(default=False)
 
     @property
     def optional(self) -> bool:
         return self.default != dis_snek.const.MISSING
 
 
-@attr.s(slots=True)
+@attr.define(slots=True)
 class ArgsIterator:
-    args: typing.Sequence[str] = attr.ib(converter=tuple)
-    index: int = attr.ib(init=False, default=0)
-    length: int = attr.ib(init=False, default=0)
+    args: typing.Sequence[str] = attr.field(converter=tuple)
+    index: int = attr.field(init=False, default=0)
+    length: int = attr.field(init=False, default=0)
 
     def __iter__(self):
         self.length = len(self.args)
@@ -268,29 +268,29 @@ async def _greedy_convert(
     return greedy_args, broke_off
 
 
-@attr.s(
+@attr.define(
     slots=True,
     kw_only=True,
     on_setattr=[attr.setters.convert, attr.setters.validate],
 )
 class MolterCommand(dis_snek.MessageCommand):
-    params: list[CommandParameter] = attr.ib(
+    params: list[CommandParameter] = attr.field(
         metadata=attr_utils.docs("The paramters of the command."),
     )
-    aliases: list[str] = attr.ib(
+    aliases: list[str] = attr.field(
         metadata=attr_utils.docs(
             "The list of aliases the command can be invoked under. Requires one of the"
             " override classes to work."
         ),
         factory=list,
     )
-    hidden: bool = attr.ib(
+    hidden: bool = attr.field(
         metadata=attr_utils.docs(
             "If `True`, the default help command does not show this in the help output."
         ),
         default=False,
     )
-    ignore_extra: bool = attr.ib(
+    ignore_extra: bool = attr.field(
         metadata=attr_utils.docs(
             "If `True`, ignores extraneous strings passed to a command if all its"
             " requirements are met (e.g. ?foo a b c when only expecting a and b)."
@@ -298,7 +298,7 @@ class MolterCommand(dis_snek.MessageCommand):
         ),
         default=True,
     )
-    hierarchical_checking: bool = attr.ib(
+    hierarchical_checking: bool = attr.field(
         metadata=attr_utils.docs(
             "If `True` and if the base of a subcommand, every subcommand underneath it"
             " will run this command's checks before its own. Otherwise, only the"
@@ -306,17 +306,17 @@ class MolterCommand(dis_snek.MessageCommand):
         ),
         default=True,
     )
-    help: typing.Optional[str] = attr.ib(
+    help: typing.Optional[str] = attr.field(
         metadata=attr_utils.docs("The long help text for the command."),
     )
-    brief: typing.Optional[str] = attr.ib(
+    brief: typing.Optional[str] = attr.field(
         metadata=attr_utils.docs("The short help text for the command."),
     )
-    parent: typing.Optional["MolterCommand"] = attr.ib(
+    parent: typing.Optional["MolterCommand"] = attr.field(
         metadata=attr_utils.docs("The parent command, if applicable."),
         default=None,
     )
-    command_dict: dict[str, "MolterCommand"] = attr.ib(
+    command_dict: dict[str, "MolterCommand"] = attr.field(
         metadata=attr_utils.docs(
             "A dict of a subcommand's name and the subcommand for this command."
         ),
