@@ -2,6 +2,7 @@ import re
 import typing
 
 import dis_snek
+from dis_snek.models.discord.channel import VoiceChannel
 
 from . import errors
 
@@ -91,7 +92,7 @@ class MemberConverter(IDConverter[dis_snek.Member]):
         if match:
             try:
                 result = await ctx.bot.get_member(int(match.group(1)), ctx.guild_id)
-            except dis_snek.HTTPException:
+            except dis_snek.errors.HTTPException:
                 pass
         elif ctx.guild.chunked:
             result = self._get_member_from_list(ctx.guild.members, argument)
@@ -121,7 +122,7 @@ class UserConverter(IDConverter[dis_snek.User]):
         if match:
             try:
                 result = await ctx.bot.get_user(int(match.group(1)))
-            except dis_snek.HTTPException:
+            except dis_snek.errors.HTTPException:
                 pass
         else:
             if len(argument) > 5 and argument[-5] == "#":
@@ -163,7 +164,7 @@ class ChannelConverter(IDConverter[T_co]):
         if match:
             try:
                 result = await ctx.bot.get_channel(int(match.group(1)))
-            except dis_snek.HTTPException:
+            except dis_snek.errors.HTTPException:
                 pass
         elif ctx.guild:
             result = next((c for c in ctx.guild.channels if c.name == argument), None)
@@ -199,9 +200,9 @@ class GuildTextConverter(ChannelConverter[dis_snek.GuildText]):
         return isinstance(result, dis_snek.GuildText)
 
 
-class VoiceChannelConverter(ChannelConverter[dis_snek.VoiceChannel]):
+class VoiceChannelConverter(ChannelConverter[VoiceChannel]):
     def _check(self, result: dis_snek.BaseChannel):
-        return isinstance(result, dis_snek.VoiceChannel)
+        return isinstance(result, VoiceChannel)
 
 
 class ThreadChannelConverter(ChannelConverter[dis_snek.ThreadChannel]):
@@ -224,7 +225,7 @@ class RoleConverter(IDConverter[dis_snek.Role]):
         if match:
             try:
                 result = await ctx.guild.get_role(int(match.group(1)))
-            except dis_snek.HTTPException:
+            except dis_snek.errors.HTTPException:
                 pass
         else:
             result = next(
@@ -248,7 +249,7 @@ class GuildConverter(IDConverter[dis_snek.Guild]):
         if match:
             try:
                 result = await ctx.bot.get_guild(int(match.group(1)))
-            except dis_snek.HTTPException:
+            except dis_snek.errors.HTTPException:
                 pass
         else:
             result = next(
@@ -307,7 +308,7 @@ class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
         if match:
             try:
                 result = await ctx.guild.get_custom_emoji(int(match.group(1)))
-            except dis_snek.HTTPException:
+            except dis_snek.errors.HTTPException:
                 pass
         else:
             emojis = await ctx.guild.get_all_custom_emojis()

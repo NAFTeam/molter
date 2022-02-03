@@ -2,6 +2,8 @@ import logging
 import typing
 
 import dis_snek
+from dis_snek.client.utils.input_utils import get_args
+from dis_snek.client.utils.input_utils import get_first_word
 
 from .command import MolterCommand
 
@@ -92,7 +94,7 @@ class MolterSnake(dis_snek.Snake):
                 command = self
 
                 while True:
-                    first_word: str = dis_snek.utils.get_first_word(content)
+                    first_word: str = get_first_word(content)
                     if isinstance(command, MolterCommand):
                         new_command = command.command_dict.get(first_word)
                     else:
@@ -113,7 +115,7 @@ class MolterSnake(dis_snek.Snake):
 
                 if command and command.enabled:
                     context.invoked_name = context.invoked_name.strip()
-                    context.args = dis_snek.utils.get_args(context.content_parameters)
+                    context.args = get_args(context.content_parameters)
                     try:
                         if self.pre_run_callback:
                             await self.pre_run_callback(context)
