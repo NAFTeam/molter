@@ -263,16 +263,10 @@ class GuildConverter(IDConverter[dis_snek.Guild]):
         return result
 
 
-try:
-    PARTIAL_EMOJI = dis_snek.PartialEmoji
-except AttributeError:
-    PARTIAL_EMOJI = dis_snek.Emoji
-
-
-class PartialEmojiConverter(IDConverter[PARTIAL_EMOJI]):
+class PartialEmojiConverter(IDConverter[dis_snek.PartialEmoji]):
     async def convert(
         self, ctx: dis_snek.MessageContext, argument: str
-    ) -> PARTIAL_EMOJI:
+    ) -> dis_snek.PartialEmoji:
 
         match = self._get_id_match(argument) or re.match(
             r"<a?:[a-zA-Z0-9\_]{1,32}:([0-9]{15,20})>$", argument
@@ -283,14 +277,11 @@ class PartialEmojiConverter(IDConverter[PARTIAL_EMOJI]):
             emoji_name = match.group(2)
             emoji_id = int(match.group(3))
 
-            return PARTIAL_EMOJI(id=emoji_id, name=emoji_name, animated=emoji_animated)  # type: ignore
+            return dis_snek.PartialEmoji(id=emoji_id, name=emoji_name, animated=emoji_animated)  # type: ignore
 
         raise errors.BadArgument(
-            f'Couldn\'t convert "{argument}" to {PARTIAL_EMOJI.__name__}.'
+            f'Couldn\'t convert "{argument}" to {dis_snek.PartialEmoji.__name__}.'
         )
-
-
-EmojiConverter = PartialEmojiConverter
 
 
 class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
@@ -338,6 +329,6 @@ SNEK_OBJECT_TO_CONVERTER: dict[type, Converter] = {
     dis_snek.ThreadChannel: ThreadChannelConverter,
     dis_snek.Role: RoleConverter,
     dis_snek.Guild: GuildConverter,
-    PARTIAL_EMOJI: PartialEmojiConverter,
+    dis_snek.PartialEmoji: PartialEmojiConverter,
     dis_snek.CustomEmoji: CustomEmojiConverter,
 }
