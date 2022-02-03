@@ -302,8 +302,13 @@ class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
             except dis_snek.errors.HTTPException:
                 pass
         else:
-            emojis = await ctx.guild.get_all_custom_emojis()
-            result = next((e for e in emojis if e.name == argument))
+            if ctx.bot.cache.enable_emoji_cache:
+                emojis = ctx.bot.cache.emoji_cache.values()
+                result = next((e for e in emojis if e.name == argument))
+
+            if not result:
+                emojis = await ctx.guild.get_all_custom_emojis()
+                result = next((e for e in emojis if e.name == argument))
 
         if not result:
             raise errors.BadArgument(f'Emoji "{argument}" not found.')
