@@ -81,8 +81,7 @@ class MolterSnake(dis_snek.Snake):
             prefix = await self.get_prefix(message)
 
             if prefix == dis_snek.const.MENTION_PREFIX:
-                mention = self._mention_reg.search(message.content)
-                if mention:
+                if mention := self._mention_reg.search(message.content):
                     prefix = mention.group()
                 else:
                     return

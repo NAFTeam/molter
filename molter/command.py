@@ -198,9 +198,7 @@ def _get_params(func: typing.Callable):
 
 
 def _arg_fix(arg: str):
-    if arg[0] in _quotes.keys():
-        return arg[1:-1]
-    return arg
+    return arg[1:-1] if arg[0] in _quotes.keys() else arg
 
 
 async def maybe_coroutine(func: typing.Callable, *args, **kwargs):
@@ -220,7 +218,7 @@ async def _convert(param: CommandParameter, ctx: dis_snek.MessageContext, arg: s
             if not param.union and not param.optional:
                 if isinstance(e, errors.BadArgument):
                     raise
-                raise errors.BadArgument(str(e))
+                raise errors.BadArgument(str(e)) from e
 
     used_default = False
     if converted == dis_snek.const.MISSING:

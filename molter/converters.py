@@ -268,11 +268,9 @@ class PartialEmojiConverter(IDConverter[dis_snek.PartialEmoji]):
         self, ctx: dis_snek.MessageContext, argument: str
     ) -> dis_snek.PartialEmoji:
 
-        match = self._get_id_match(argument) or re.match(
+        if match := self._get_id_match(argument) or re.match(
             r"<a?:[a-zA-Z0-9\_]{1,32}:([0-9]{15,20})>$", argument
-        )
-
-        if match:
+        ):
             emoji_animated = bool(match.group(1))
             emoji_name = match.group(2)
             emoji_id = int(match.group(3))
