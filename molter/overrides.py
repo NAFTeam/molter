@@ -74,6 +74,9 @@ class MolterSnake(dis_snek.Snake):
         This special version for Molter also adds support for subcommands."""
         message = event.message
 
+        if not message.content:
+            return
+
         if not message.author.bot:
             prefix = await self.get_prefix(message)
 
