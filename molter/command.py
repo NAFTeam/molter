@@ -87,7 +87,7 @@ def _get_converter(
     anno: type, name: str
 ) -> typing.Callable[[dis_snek.MessageContext, str], typing.Any]:  # type: ignore
     if converter := converters.SNEK_OBJECT_TO_CONVERTER.get(anno, None):
-        return converter().convert  # type: ignore
+        return converter().convert
     elif inspect.isclass(anno) and issubclass(anno, converters.Converter):
         return anno().convert  # type: ignore
     elif hasattr(anno, "convert") and inspect.isfunction(anno.convert):  # type: ignore

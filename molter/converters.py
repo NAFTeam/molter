@@ -321,7 +321,7 @@ class Greedy(typing.List[T]):
     pass
 
 
-SNEK_OBJECT_TO_CONVERTER: dict[type, Converter] = {
+SNEK_OBJECT_TO_CONVERTER: dict[type, type[Converter]] = {
     dis_snek.SnowflakeObject: SnowflakeConverter,
     dis_snek.Member: MemberConverter,
     dis_snek.User: UserConverter,
