@@ -7,7 +7,6 @@ from types import UnionType
 
 import attr
 import dis_snek
-from dis_snek.client.utils import attr_utils
 from dis_snek.client.utils.input_utils import _quotes
 
 from . import converters
@@ -273,23 +272,23 @@ async def _greedy_convert(
 )
 class MolterCommand(dis_snek.MessageCommand):
     params: list[CommandParameter] = attr.field(
-        metadata=attr_utils.docs("The paramters of the command."),
+        metadata=dis_snek.utils.docs("The paramters of the command."),
     )
     aliases: list[str] = attr.field(
-        metadata=attr_utils.docs(
+        metadata=dis_snek.utils.docs(
             "The list of aliases the command can be invoked under. Requires one of the"
             " override classes to work."
         ),
         factory=list,
     )
     hidden: bool = attr.field(
-        metadata=attr_utils.docs(
+        metadata=dis_snek.utils.docs(
             "If `True`, the default help command does not show this in the help output."
         ),
         default=False,
     )
     ignore_extra: bool = attr.field(
-        metadata=attr_utils.docs(
+        metadata=dis_snek.utils.docs(
             "If `True`, ignores extraneous strings passed to a command if all its"
             " requirements are met (e.g. ?foo a b c when only expecting a and b)."
             " Otherwise, an error is raised. Defaults to True."
@@ -297,7 +296,7 @@ class MolterCommand(dis_snek.MessageCommand):
         default=True,
     )
     hierarchical_checking: bool = attr.field(
-        metadata=attr_utils.docs(
+        metadata=dis_snek.utils.docs(
             "If `True` and if the base of a subcommand, every subcommand underneath it"
             " will run this command's checks before its own. Otherwise, only the"
             " subcommand's checks are checked."
@@ -305,17 +304,17 @@ class MolterCommand(dis_snek.MessageCommand):
         default=True,
     )
     help: typing.Optional[str] = attr.field(
-        metadata=attr_utils.docs("The long help text for the command."),
+        metadata=dis_snek.utils.docs("The long help text for the command."),
     )
     brief: typing.Optional[str] = attr.field(
-        metadata=attr_utils.docs("The short help text for the command."),
+        metadata=dis_snek.utils.docs("The short help text for the command."),
     )
     parent: typing.Optional["MolterCommand"] = attr.field(
-        metadata=attr_utils.docs("The parent command, if applicable."),
+        metadata=dis_snek.utils.docs("The parent command, if applicable."),
         default=None,
     )
     command_dict: dict[str, "MolterCommand"] = attr.field(
-        metadata=attr_utils.docs(
+        metadata=dis_snek.utils.docs(
             "A dict of a subcommand's name and the subcommand for this command."
         ),
         factory=dict,
