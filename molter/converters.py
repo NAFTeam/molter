@@ -2,7 +2,6 @@ import re
 import typing
 
 import dis_snek
-from dis_snek.models.discord.channel import VoiceChannel
 
 from . import errors
 
@@ -200,9 +199,9 @@ class GuildTextConverter(ChannelConverter[dis_snek.GuildText]):
         return isinstance(result, dis_snek.GuildText)
 
 
-class VoiceChannelConverter(ChannelConverter[VoiceChannel]):
+class GuildVoiceConverter(ChannelConverter[dis_snek.GuildVoice]):
     def _check(self, result: dis_snek.BaseChannel):
-        return isinstance(result, VoiceChannel)
+        return isinstance(result, dis_snek.GuildVoice)
 
 
 class ThreadChannelConverter(ChannelConverter[dis_snek.ThreadChannel]):
@@ -328,7 +327,7 @@ SNEK_OBJECT_TO_CONVERTER: dict[type, type[Converter]] = {
     dis_snek.BaseChannel: BaseChannelConverter,
     dis_snek.GuildChannel: GuildChannelConverter,
     dis_snek.GuildText: GuildTextConverter,
-    VoiceChannel: VoiceChannelConverter,
+    dis_snek.GuildVoice: GuildVoiceConverter,
     dis_snek.ThreadChannel: ThreadChannelConverter,
     dis_snek.Role: RoleConverter,
     dis_snek.Guild: GuildConverter,
