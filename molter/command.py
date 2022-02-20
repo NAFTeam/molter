@@ -404,7 +404,7 @@ class MolterCommand(dis_snek.MessageCommand):
 
         return cmd
 
-    def command(
+    def subcommand(
         self,
         name: str = None,
         *,
@@ -470,10 +470,6 @@ class MolterCommand(dis_snek.MessageCommand):
             return cmd
 
         return wrapper
-
-    message_command = command
-    msg_command = command
-    subcommand = command
 
     async def call_callback(
         self, callback: typing.Callable, ctx: dis_snek.MessageContext
