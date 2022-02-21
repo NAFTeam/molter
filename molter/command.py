@@ -356,6 +356,80 @@ class MolterCommand(dis_snek.MessageCommand):
     def all_commands(self):
         return set(self.command_dict.values())
 
+    @property
+    def signature(self) -> str:
+        """Returns a POSIX-like signature useful for help command output."""
+
+        # just a little note: this is based on:
+        # https://github.com/Rapptz/discord.py/blob/master/discord/ext/commands/core.py#L1020-L1072
+        # the code structure is very much alike, so i think it's only fair enough
+        # to include a copyright notice here
+
+        """
+        The MIT License (MIT)
+
+        Copyright (c) 2015-present Rapptz
+
+        Permission is hereby granted, free of charge, to any person obtaining a
+        copy of this software and associated documentation files (the "Software"),
+        to deal in the Software without restriction, including without limitation
+        the rights to use, copy, modify, merge, publish, distribute, sublicense,
+        and/or sell copies of the Software, and to permit persons to whom the
+        Software is furnished to do so, subject to the following conditions:
+
+        The above copyright notice and this permission notice shall be included in
+        all copies or substantial portions of the Software.
+
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+        OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+        FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+        DEALINGS IN THE SOFTWARE.
+        """
+
+        if not self.params:
+            return ""
+
+        result = []
+
+        for param in self.params:
+            anno = param.type
+            name = param.name
+
+            if not param.greedy and param.union:
+                union_args = typing.get_args(anno)
+                if len(union_args) == 2 and param.optional:
+                    anno = union_args[0]
+
+            if typing.get_origin(anno) is typing.Literal:
+                name = "|".join(
+                    f'"{v}"' if isinstance(v, str) else str(v)
+                    for v in typing.get_args(anno)
+                )
+
+            if param.optional and param.default is not None:
+                # saying the value equals None would look weird
+                result.append(
+                    f"[{name}={param.default}]"
+                    if not param.greedy
+                    else f"[{name}={param.default}]..."
+                )
+            elif param.variable:
+                if param.optional:
+                    result.append(f"[{name}...]")
+                else:
+                    result.append(f"<{name}...>")
+            elif param.greedy:
+                result.append(f"[{name}]...")
+            elif param.optional:
+                result.append(f"[{name}]")
+            else:
+                result.append(f"<{name}>")
+
+        return " ".join(result)
+
     def add_command(self, cmd: "MolterCommand"):
         cmd.parent = self  # just so we know this is a subcommand
 
