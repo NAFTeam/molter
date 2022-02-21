@@ -49,6 +49,9 @@ class MolterSnake(dis_snek.Snake):
     in the class, as doing so improperly will break alias and/or subcommand support.
     """
 
+    commands: dict[str, MolterCommand]
+    """A dictionary of registered commands: `{name: command}`"""
+
     def add_message_command(
         self, command: typing.Union[dis_snek.MessageCommand, MolterCommand]
     ):
@@ -92,7 +95,6 @@ class MolterSnake(dis_snek.Snake):
                 context.prefix = prefix
 
                 content = message.content.removeprefix(prefix)
-                self.commands: dict[str, MolterCommand]
                 command = self
 
                 while True:
