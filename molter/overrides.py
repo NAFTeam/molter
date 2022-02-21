@@ -71,6 +71,26 @@ class MolterSnake(dis_snek.Snake):
                 f"Duplicate Command! Multiple commands share the name/alias `{alias}`"
             )
 
+    def get_command(self, name: str):
+        if " " not in name:
+            return self.commands.get(name)
+
+        names = name.split()
+        if not names:
+            return None
+
+        cmd = self.commands.get(name[0])
+        if not cmd or not cmd.command_dict:
+            return cmd
+
+        for name in names[1:]:
+            try:
+                cmd = cmd.command_dict[name]
+            except (AttributeError, KeyError):
+                return None
+
+        return cmd
+
     @dis_snek.listen("message_create")
     async def _dispatch_msg_commands(self, event: dis_snek.events.MessageCreate):
         """Determine if a command is being triggered, and dispatch it.
