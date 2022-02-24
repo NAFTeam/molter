@@ -30,7 +30,7 @@ class CommandTest(dis_snek.Scale):
         a_user: Optional[dis_snek.Member],
         a_bool: bool,
     ):
-        await ctx.message.reply(f"{a_num} {a_user} {a_bool}")
+        await ctx.reply(f"{a_num} {a_user} {a_bool}")
 
 
 def setup(bot):
