@@ -101,20 +101,33 @@ class MolterSnake(dis_snek.Snake):
             return
 
         if not message.author.bot:
-            prefix = await self.get_prefix(message)
+            prefixes = await self.generate_prefixes(message)
 
-            if prefix == dis_snek.const.MENTION_PREFIX:
-                if mention := self._mention_reg.search(message.content):
-                    prefix = mention.group()
-                else:
-                    return
+            if isinstance(prefixes, str) or prefixes == dis_snek.const.MENTION_PREFIX:
+                # its easier to treat everything as if it may be an iterable
+                # rather than building a special case for this
+                prefixes = (prefixes,)
 
-            if message.content.startswith(prefix):
+            prefix_used = None
+
+            for prefix in prefixes:
+                if prefix == dis_snek.const.MENTION_PREFIX:
+                    mention = self._mention_reg.search(message.content)
+                    if mention:
+                        prefix = mention.group()
+                    else:
+                        continue
+
+                if message.content.startswith(prefix):
+                    prefix_used = prefix
+                    break
+
+            if prefix_used:
                 context = await self.get_context(message)
                 context.invoked_name = ""
-                context.prefix = prefix
+                context.prefix = prefix_used
 
-                content = message.content.removeprefix(prefix)
+                content = message.content.removeprefix(prefix_used)
                 command = self
 
                 while True:
