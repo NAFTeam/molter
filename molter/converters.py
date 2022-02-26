@@ -36,7 +36,7 @@ class LiteralConverter(Converter):
         )
 
 
-_ID_REGEX = re.compile(r"([0-9]{15,20})$")
+_ID_REGEX = re.compile(r"([0-9]{15,})$")
 
 
 class IDConverter(Converter[T_co]):
@@ -50,7 +50,7 @@ class SnowflakeConverter(IDConverter[dis_snek.SnowflakeObject]):
         self, ctx: dis_snek.MessageContext, argument: str
     ) -> dis_snek.SnowflakeObject:
         match = self._get_id_match(argument) or re.match(
-            r"<(?:@(?:!|&)?|#)([0-9]{15,20})>$", argument
+            r"<(?:@(?:!|&)?|#)([0-9]{15,})>$", argument
         )
 
         if match is None:
@@ -84,7 +84,7 @@ class MemberConverter(IDConverter[dis_snek.Member]):
             raise errors.BadArgument("This command cannot be used in private messages.")
 
         match = self._get_id_match(argument) or re.match(
-            r"<@!?([0-9]{15,20})>$", argument
+            r"<@!?([0-9]{15,})>$", argument
         )
         result = None
 
@@ -114,7 +114,7 @@ class UserConverter(IDConverter[dis_snek.User]):
         self, ctx: dis_snek.MessageContext, argument: str
     ) -> dis_snek.User:
         match = self._get_id_match(argument) or re.match(
-            r"<@!?([0-9]{15,20})>$", argument
+            r"<@!?([0-9]{15,})>$", argument
         )
         result = None
 
@@ -155,9 +155,7 @@ class ChannelConverter(IDConverter[T_co]):
         ctx: dis_snek.MessageContext,
         argument: str,
     ) -> T_co:
-        match = self._get_id_match(argument) or re.match(
-            r"<#([0-9]{15,20})>$", argument
-        )
+        match = self._get_id_match(argument) or re.match(r"<#([0-9]{15,})>$", argument)
         result = None
 
         if match:
@@ -216,9 +214,7 @@ class RoleConverter(IDConverter[dis_snek.Role]):
         if not ctx.guild:
             raise errors.BadArgument("This command cannot be used in private messages.")
 
-        match = self._get_id_match(argument) or re.match(
-            r"<@&([0-9]{15,20})>$", argument
-        )
+        match = self._get_id_match(argument) or re.match(r"<@&([0-9]{15,})>$", argument)
         result = None
 
         if match:
@@ -268,7 +264,7 @@ class PartialEmojiConverter(IDConverter[dis_snek.PartialEmoji]):
     ) -> dis_snek.PartialEmoji:
 
         if match := self._get_id_match(argument) or re.match(
-            r"<a?:[a-zA-Z0-9\_]{1,32}:([0-9]{15,20})>$", argument
+            r"<a?:[a-zA-Z0-9\_]{1,32}:([0-9]{15,})>$", argument
         ):
             emoji_animated = bool(match.group(1))
             emoji_name = match.group(2)
@@ -289,7 +285,7 @@ class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
             raise errors.BadArgument("This command cannot be used in private messages.")
 
         match = self._get_id_match(argument) or re.match(
-            r"<a?:[a-zA-Z0-9\_]{1,32}:([0-9]{15,20})>$", argument
+            r"<a?:[a-zA-Z0-9\_]{1,32}:([0-9]{15,})>$", argument
         )
         result = None
 
