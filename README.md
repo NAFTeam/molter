@@ -7,6 +7,8 @@ Shedding a new skin on [Dis-Snek's](https://github.com/Discord-Snake-Pit/Dis-Sne
 
 Currently, its goals are to make message commands more similar (not exactly the same!) to [discord.py's](https://github.com/Rapptz/discord.py) message commands.
 
+Primary developed by Astrea49. Direct questions about the project to her, please!
+
 # Installing
 ```sh
 pip install molter
