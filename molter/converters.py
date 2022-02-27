@@ -275,10 +275,7 @@ class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
         result = None
 
         if match:
-            try:
-                result = await ctx.guild.fetch_custom_emoji(int(match.group(1)))
-            except dis_snek.errors.HTTPException:
-                pass
+            result = await ctx.guild.fetch_custom_emoji(int(match.group(1)))
         else:
             if ctx.bot.cache.enable_emoji_cache:
                 emojis = ctx.bot.cache.emoji_cache.values()
@@ -338,15 +335,17 @@ class MessageConverter(Converter[dis_snek.Message]):
             raise errors.BadArgument(f'Channel "{channel_id}" not found.')
 
         try:
-            return await channel.fetch_message(message_id)
+            message = await channel.fetch_message(message_id)
+            if not message:
+                raise errors.BadArgument(f'Message "{argument}" not found.')
         except AttributeError:  # if the channel doesnt have the ability to fetch messages
             raise errors.BadArgument(
                 f"Channel {channel.mention} is not a text channel."
             )
-        except dis_snek.errors.NotFound:
-            raise errors.BadArgument(f'Message "{argument}" not found.')
         except dis_snek.errors.Forbidden:
             raise errors.BadArgument(f"Cannot read messages for {channel.mention}.")
+
+        return message
 
 
 class Greedy(typing.List[T]):
