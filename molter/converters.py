@@ -309,6 +309,61 @@ class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
         return result
 
 
+class MessageConverter(Converter[dis_snek.Message]):
+    # either just the id or <chan_id>-<mes_id>, a format you can get by shift clicking "copy id"
+    _ID_REGEX = re.compile(
+        r"(?:(?P<channel_id>[0-9]{15,})-)?(?P<message_id>[0-9]{15,})"
+    )
+    # of course, having a way to get it from a link is nice
+    _MESSAGE_LINK_REGEX = re.compile(
+        r"https?://[\S]*?discord(?:app)?\.com/channels/(?P<guild_id>[0-9]{15,}|@me)/"
+        r"(?P<channel_id>[0-9]{15,})/(?P<message_id>[0-9]{15,})\/?$"
+    )
+
+    async def convert(
+        self, ctx: dis_snek.MessageContext, argument: str
+    ) -> dis_snek.Message:
+        match = self._ID_REGEX.match(argument) or self._MESSAGE_LINK_REGEX.match(
+            argument
+        )
+        if not match:
+            raise errors.BadArgument(f'Message "{argument}" not found.')
+
+        data = match.groupdict()
+
+        message_id = data["message_id"]
+        channel_id = (
+            ctx.channel.id if not data.get("channel_id") else int(data["channel_id"])
+        )
+
+        # this guild checking is technically unnecessary, but we do it just in case
+        # it means a user cant just provide an invalid guild id and still get a message
+        guild_id = ctx.guild_id if not data.get("guild_id") else data["guild_id"]
+        guild_id = None if guild_id == "@me" else int(guild_id)
+
+        if guild_id:
+            base = await ctx.bot.fetch_guild(guild_id)
+            if not base:  #  if not a guild
+                raise errors.BadArgument(f'Guild "{guild_id}" not found.')
+        else:
+            base = ctx.bot
+
+        channel = await base.fetch_channel(channel_id)
+        if not channel:
+            raise errors.BadArgument(f'Channel "{channel_id}" not found.')
+
+        try:
+            return await channel.fetch_message(message_id)
+        except AttributeError:  # if the channel doesnt have the ability to fetch messages
+            raise errors.BadArgument(
+                f"Channel {channel.mention} is not a text channel."
+            )
+        except dis_snek.errors.NotFound:
+            raise errors.BadArgument(f'Message "{argument}" not found.')
+        except dis_snek.errors.Forbidden:
+            raise errors.BadArgument(f"Cannot read messages for {channel.mention}.")
+
+
 class Greedy(typing.List[T]):
     # this class doesn't actually do a whole lot
     # it's more or less simply a note to the parameter
@@ -329,4 +384,5 @@ SNEK_OBJECT_TO_CONVERTER: dict[type, type[Converter]] = {
     dis_snek.Guild: GuildConverter,
     dis_snek.PartialEmoji: PartialEmojiConverter,
     dis_snek.CustomEmoji: CustomEmojiConverter,
+    dis_snek.Message: MessageConverter,
 }
