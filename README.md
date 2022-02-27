@@ -1,4 +1,4 @@
-## NOTE: this branch is a branch that closely follows `dis-snek`'s developer branch. Use this if you're experimenting with it.
+## NOTE: this branch is a branch that closely follows `dis-snek`'s `dev` branch. Use this if you're experimenting with it.
 
 [![PyPI](https://img.shields.io/pypi/v/molter)](https://pypi.org/project/molter/)
 [![Downloads](https://static.pepy.tech/personalized-badge/molter?period=total&units=abbreviation&left_color=grey&right_color=green&left_text=pip%20installs)](https://pepy.tech/project/molter)
