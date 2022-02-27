@@ -89,10 +89,7 @@ class MemberConverter(IDConverter[dis_snek.Member]):
         result = None
 
         if match:
-            try:
-                result = await ctx.bot.get_member(int(match.group(1)), ctx.guild_id)
-            except dis_snek.errors.HTTPException:
-                pass
+            result = await ctx.guild.fetch_member(int(match.group(1)))
         elif ctx.guild.chunked:
             result = self._get_member_from_list(ctx.guild.members, argument)
         else:
@@ -119,10 +116,7 @@ class UserConverter(IDConverter[dis_snek.User]):
         result = None
 
         if match:
-            try:
-                result = await ctx.bot.get_user(int(match.group(1)))
-            except dis_snek.errors.HTTPException:
-                pass
+            result = await ctx.bot.fetch_user(int(match.group(1)))
         else:
             if len(argument) > 5 and argument[-5] == "#":
                 result = next(
@@ -159,10 +153,7 @@ class ChannelConverter(IDConverter[T_co]):
         result = None
 
         if match:
-            try:
-                result = await ctx.bot.get_channel(int(match.group(1)))
-            except dis_snek.errors.HTTPException:
-                pass
+            result = await ctx.bot.fetch_channel(int(match.group(1)))
         elif ctx.guild:
             result = next((c for c in ctx.guild.channels if c.name == argument), None)
 
@@ -218,10 +209,7 @@ class RoleConverter(IDConverter[dis_snek.Role]):
         result = None
 
         if match:
-            try:
-                result = await ctx.guild.get_role(int(match.group(1)))
-            except dis_snek.errors.HTTPException:
-                pass
+            result = await ctx.guild.fetch_role(int(match.group(1)))
         else:
             result = next(
                 (r for r in ctx.guild.roles if r.name == argument),
@@ -242,10 +230,7 @@ class GuildConverter(IDConverter[dis_snek.Guild]):
         result = None
 
         if match:
-            try:
-                result = await ctx.bot.get_guild(int(match.group(1)))
-            except dis_snek.errors.HTTPException:
-                pass
+            result = await ctx.bot.fetch_guild(int(match.group(1)))
         else:
             result = next(
                 (g for g in ctx.bot.guilds if g.name == argument),
@@ -291,7 +276,7 @@ class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
 
         if match:
             try:
-                result = await ctx.guild.get_custom_emoji(int(match.group(1)))
+                result = await ctx.guild.fetch_custom_emoji(int(match.group(1)))
             except dis_snek.errors.HTTPException:
                 pass
         else:
@@ -300,7 +285,7 @@ class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
                 result = next((e for e in emojis if e.name == argument))
 
             if not result:
-                emojis = await ctx.guild.get_all_custom_emojis()
+                emojis = await ctx.guild.fetch_all_custom_emojis()
                 result = next((e for e in emojis if e.name == argument))
 
         if not result:
