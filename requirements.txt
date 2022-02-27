@@ -1,1 +1,1 @@
-dis-snek>=7.0.0
+git+https://github.com/Discord-Snake-Pit/Dis-Snek.git@dev
