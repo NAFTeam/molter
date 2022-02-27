@@ -156,7 +156,7 @@ class MolterSnake(dis_snek.Snake):
                     try:
                         if self.pre_run_callback:
                             await self.pre_run_callback(context)
-                        await command(context)
+                        await self._run_message_command(command, context)
                         if self.post_run_callback:
                             await self.post_run_callback(context)
                     except Exception as e:
