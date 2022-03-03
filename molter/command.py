@@ -450,13 +450,13 @@ class MolterCommand(dis_snek.MessageCommand):
             self.command_dict[alias] = cmd
 
     def remove_command(self, name: str):
-        command = self.command_dict.pop(name)
+        command = self.command_dict.pop(name, None)
 
         if command is None or name in command.aliases:
             return
 
         for alias in command.aliases:
-            self.command_dict.pop(alias)
+            self.command_dict.pop(alias, None)
 
     def get_command(self, name: str):
         if " " not in name:
