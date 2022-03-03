@@ -74,9 +74,9 @@ def _get_name(x: typing.Any):
 
 def _convert_to_bool(argument: str) -> bool:
     lowered = argument.lower()
-    if lowered in ("yes", "y", "true", "t", "1", "enable", "on"):
+    if lowered in {"yes", "y", "true", "t", "1", "enable", "on"}:
         return True
-    elif lowered in ("no", "n", "false", "f", "0", "disable", "off"):
+    elif lowered in {"no", "n", "false", "f", "0", "disable", "off"}:
         return False
     else:
         raise errors.BadArgument(f"{argument} is not a recognised boolean option.")
