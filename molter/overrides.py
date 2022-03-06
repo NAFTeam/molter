@@ -101,7 +101,7 @@ class MolterSnake(dis_snek.Snake):
             return
 
         if not message.author.bot:
-            prefixes = await self.generate_prefixes(message)
+            prefixes = await self.generate_prefixes(self, message)
 
             if isinstance(prefixes, str) or prefixes == dis_snek.const.MENTION_PREFIX:
                 # its easier to treat everything as if it may be an iterable
