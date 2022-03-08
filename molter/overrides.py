@@ -28,11 +28,15 @@ class MolterScale(dis_snek.Scale):
                     if self.bot.interactions.get(scope):
                         self.bot.interactions[scope].pop(func.resolved_name, [])
             elif isinstance(func, dis_snek.MessageCommand):
-                self.bot.commands.pop(func.name, None)
+                # detect if its a molter subcommand
+                # unloading a subcommand means commands that weren't supposed to
+                # get unloaded that happen to have the same name would
+                if not getattr(func, "parent", None):
+                    self.bot.commands.pop(func.name, None)
 
-                if isinstance(func, MolterCommand):
-                    for alias in func.aliases:
-                        self.bot.commands.pop(alias, None)
+                    if isinstance(func, MolterCommand):
+                        for alias in func.aliases:
+                            self.bot.commands.pop(alias, None)
 
         for func in self.listeners:
             self.bot.listeners[func.event].remove(func)
