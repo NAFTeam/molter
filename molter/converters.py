@@ -324,29 +324,18 @@ class MessageConverter(Converter[dis_snek.Message]):
         # this guild checking is technically unnecessary, but we do it just in case
         # it means a user cant just provide an invalid guild id and still get a message
         guild_id = ctx.guild_id if not data.get("guild_id") else data["guild_id"]
-        guild_id = None if guild_id == "@me" else int(guild_id)
-
-        if guild_id:
-            base = await ctx.bot.fetch_guild(guild_id)
-            if not base:  #  if not a guild
-                raise errors.BadArgument(f'Guild "{guild_id}" not found.')
-        else:
-            base = ctx.bot
-
-        channel = await base.fetch_channel(channel_id)
-        if not channel:
-            raise errors.BadArgument(f'Channel "{channel_id}" not found.')
+        guild_id = int(guild_id) if guild_id != "@me" else None
 
         try:
-            return await channel.fetch_message(message_id)
-        except AttributeError:  # if the channel doesnt have the ability to fetch messages
-            raise errors.BadArgument(
-                f"Channel {channel.mention} is not a text channel."
-            )
-        except dis_snek.errors.NotFound:
-            raise errors.BadArgument(f'Message "{argument}" not found.')
+            # this takes less possible requests than getting the guild and/or channel
+            mes = await ctx.bot.cache.fetch_message(channel_id, message_id)
+            if mes._guild_id != guild_id:
+                raise errors.BadArgument(f'Message "{argument}" not found.')
+            return mes
         except dis_snek.errors.Forbidden:
-            raise errors.BadArgument(f"Cannot read messages for {channel.mention}.")
+            raise errors.BadArgument(f"Cannot read messages for <#{channel_id}>.")
+        except dis_snek.errors.HTTPException:
+            raise errors.BadArgument(f'Message "{argument}" not found.')
 
 
 class Greedy(typing.List[T]):
