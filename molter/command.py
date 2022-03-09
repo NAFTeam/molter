@@ -82,9 +82,37 @@ def _convert_to_bool(argument: str) -> bool:
         raise errors.BadArgument(f"{argument} is not a recognised boolean option.")
 
 
+def _get_from_anno_type(anno: typing.Annotated, name):
+    """
+    Handles dealing with Annotated annotations, getting their
+    (first and what should be only) type annotation.
+    This allows correct type hinting with, say, Converters,
+    for example.
+    """
+    # this is treated how it usually is during runtime
+    # the first argument is ignored and the rest is treated as is
+
+    args = typing.get_args(anno)[1:]
+    if len(args) > 1:
+        # we could treat this as a union, but id rather have a user
+        # use an actual union type here
+        # from what ive seen, multiple arguments for Annotated are
+        # meant to be used to narrow down a type rather than
+        # be used as a union anyways
+        raise ValueError(
+            f"{_get_name(anno)} for {name} has more than 2 arguments, which is"
+            " unsupported."
+        )
+
+    return args[0]
+
+
 def _get_converter(
     anno: type, name: str
 ) -> typing.Callable[[dis_snek.MessageContext, str], typing.Any]:  # type: ignore
+    if typing.get_origin(anno) == typing.Annotated:
+        anno = _get_from_anno_type(anno, name)
+
     if converter := converters.SNEK_OBJECT_TO_CONVERTER.get(anno, None):
         return converter().convert
     elif inspect.isclass(anno) and issubclass(anno, converters.Converter):
@@ -121,6 +149,10 @@ def _greedy_parse(greedy: converters.Greedy, param: inspect.Parameter):
         raise ValueError("Greedy[...] cannot be a variable or keyword-only argument.")
 
     arg = typing.get_args(greedy)[0]
+
+    if typing.get_origin(arg) == typing.Annotated:
+        arg = _get_from_anno_type(arg, param.name)
+
     if arg in {NoneType, str}:
         raise ValueError(f"Greedy[{_get_name(arg)}] is invalid.")
 
@@ -158,23 +190,6 @@ def _get_params(func: typing.Callable):
         )
 
         cmd_param.type = anno = param.annotation
-
-        if typing.get_origin(anno) == typing.Annotated:
-            # this is treated how it usually is during runtime
-            # the first argument is ignored and the rest is treated as is
-
-            args = typing.get_args(anno)[1:]
-            if len(args) > 1:
-                # we could treat this as a union, but id rather have a user
-                # use an actual union type here
-                # from what ive seen, multiple arguments for Annotated are
-                # meant to be used to narrow down a type rather than
-                # be used as a union anyways
-                raise ValueError(
-                    f"{_get_name(anno)} for {name} has more than 2 arguments, which is"
-                    " unsupported."
-                )
-            cmd_param.type = anno = args[0]
 
         if typing.get_origin(anno) == converters.Greedy:
             anno = _greedy_parse(anno, param)
