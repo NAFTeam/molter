@@ -159,6 +159,23 @@ def _get_params(func: typing.Callable):
 
         cmd_param.type = anno = param.annotation
 
+        if typing.get_origin(anno) == typing.Annotated:
+            # this is treated how it usually is during runtime
+            # the first argument is ignored and the rest is treated as is
+
+            args = typing.get_args(anno)[1:]
+            if len(args) > 1:
+                # we could treat this as a union, but id rather have a user
+                # use an actual union type here
+                # from what ive seen, multiple arguments for Annotated are
+                # meant to be used to narrow down a type rather than
+                # be used as a union anyways
+                raise ValueError(
+                    f"{_get_name(anno)} for {name} has more than 2 arguments, which is"
+                    " unsupported."
+                )
+            cmd_param.type = anno = args[0]
+
         if typing.get_origin(anno) == converters.Greedy:
             anno = _greedy_parse(anno, param)
             cmd_param.greedy = True
