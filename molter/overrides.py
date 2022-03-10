@@ -48,19 +48,16 @@ class MolterScale(dis_snek.Scale):
 class MolterSnake(dis_snek.Snake):
     """
     A custom subclass of `dis_snek.Snake` that allows you to use aliases and subcommands with Molter commands.
-    This does NOT support normal message commands built in the library - the bot will error out if so.
     Be careful about overriding the `add_message_command` and `_dispatch_msg_commands` functions
     in the class, as doing so improperly will break alias and/or subcommand support.
     """
 
-    commands: dict[str, MolterCommand]
+    commands: dict[str, dis_snek.MessageCommand | MolterCommand]
     """A dictionary of registered commands: `{name: command}`"""
 
-    def add_message_command(
-        self, command: typing.Union[dis_snek.MessageCommand, MolterCommand]
-    ):
+    def add_message_command(self, command: dis_snek.MessageCommand | MolterCommand):
         if not isinstance(command, MolterCommand):
-            raise ValueError("Only Molter commands can be added to `MolterSnake`!")
+            return super().add_message_command(command)
 
         if command.parent:
             return  # silent return to ignore subcommands - hacky, ik
@@ -84,7 +81,7 @@ class MolterSnake(dis_snek.Snake):
             return None
 
         cmd = self.commands.get(name[0])
-        if not cmd or not cmd.command_dict:
+        if not cmd or not getattr(cmd, "command_dict", None):
             return cmd
 
         for name in names[1:]:
@@ -116,8 +113,7 @@ class MolterSnake(dis_snek.Snake):
 
             for prefix in prefixes:
                 if prefix == dis_snek.const.MENTION_PREFIX:
-                    mention = self._mention_reg.search(message.content)
-                    if mention:
+                    if mention := self._mention_reg.search(message.content):
                         prefix = mention.group()
                     else:
                         continue
@@ -145,6 +141,10 @@ class MolterSnake(dis_snek.Snake):
 
                     command = new_command
                     context.invoked_name += f"{first_word} "
+
+                    if not isinstance(command, MolterCommand):
+                        # normal message commands can't have subcommands
+                        break
 
                     if command.command_dict and command.hierarchical_checking:
                         await new_command._can_run(context)
