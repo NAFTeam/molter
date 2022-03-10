@@ -14,3 +14,7 @@ repos:
   rev: v2.3.0
   hooks:
     - id: trailing-whitespace
+ci:
+  autofix_commit_msg: '[chore] auto fixes from pre-commit.com hooks'
+  autoupdate_branch: 'main'
+  autoupdate_commit_msg: '[chore] pre-commit autoupdate'
