@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import collections
 import functools
 import inspect
 import typing
@@ -7,12 +10,36 @@ from types import UnionType
 import attrs
 import dis_snek
 
+T_co = typing.TypeVar("T_co", covariant=True)
 
-@attrs.define(slots=True)
+
+@typing.runtime_checkable
+class Converter(typing.Protocol[T_co]):
+    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> T_co:
+        raise NotImplementedError("Derived classes need to implement this.")
+
+
+def _converter_converter(value: typing.Any):
+    if value is dis_snek.const.Missing:
+        return value
+
+    if inspect.isclass(value) and issubclass(value, Converter):
+        return value()  # type: ignore
+    elif hasattr(value, "convert") and inspect.isfunction(value.convert):  # type: ignore
+        return value
+    else:
+        raise ValueError(f"{repr(value)} is not a valid converter.")
+
+
+@attrs.define(slots=True, on_setattr=[attrs.setters.convert, attrs.setters.validate])
 class Param:
     name: str = attrs.field(default=None)
     type: typing.Union[dis_snek.OptionTypes, type] = attrs.field(default=None)
-    description: str = attrs.field(default="No Description Set")
+    converter: typing.Any = attrs.field(
+        default=dis_snek.const.Missing, converter=_converter_converter
+    )
+    default: typing.Any = attrs.field(default=inspect._empty)
+    description: str = attrs.field(default="No description set.")
     required: bool = attrs.field(default=True)
     autocomplete: typing.Callable = attrs.field(default=None)
     choices: list[dis_snek.SlashCommandChoice | dict] = attrs.field(factory=list)
@@ -27,40 +54,49 @@ def _get_option(t: dis_snek.OptionTypes | type):
     if isinstance(t, dis_snek.OptionTypes):
         return t
 
-    if issubclass(t, str):
+    if isinstance(t, str):
         return dis_snek.OptionTypes.STRING
-    if issubclass(t, int):
+    if isinstance(t, int):
         return dis_snek.OptionTypes.INTEGER
-    if issubclass(t, bool):
+    if isinstance(t, bool):
         return dis_snek.OptionTypes.BOOLEAN
-    if issubclass(t, dis_snek.BaseUser):
+    if isinstance(t, dis_snek.BaseUser):
         return dis_snek.OptionTypes.USER
-    if issubclass(t, dis_snek.BaseChannel):
+    if isinstance(t, dis_snek.BaseChannel):
         return dis_snek.OptionTypes.CHANNEL
-    if issubclass(t, dis_snek.Role):
+    if isinstance(t, dis_snek.Role):
         return dis_snek.OptionTypes.ROLE
-    if issubclass(t, float):
+    if isinstance(t, float):
         return dis_snek.OptionTypes.NUMBER
-    if issubclass(t, dis_snek.Attachment):
+    if isinstance(t, dis_snek.Attachment):
         return dis_snek.OptionTypes.ATTACHMENT
 
     if typing.get_origin(t) in {typing.Union, UnionType}:
         args = typing.get_args(t)
         if (
             len(args) in {2, 3}
-            and issubclass(args[0], dis_snek.BaseUser)
-            and issubclass(args[1], dis_snek.BaseChannel)
+            and isinstance(args[0], dis_snek.BaseUser)
+            and isinstance(args[1], dis_snek.BaseChannel)
         ):
             return dis_snek.OptionTypes.MENTIONABLE
 
     return dis_snek.OptionTypes.STRING
 
 
+@attrs.define(slots=True, on_setattr=[attrs.setters.convert, attrs.setters.validate])
+class ExpandedOptions(dis_snek.SlashCommandOption):
+    name: str = attrs.field(default=None)
+    type: dis_snek.OptionTypes | int = attrs.field(default=None)
+    converter: typing.Any = attrs.field(default=dis_snek.const.Missing)
+    default: typing.Any = attrs.field(default=inspect._empty)
+    autocomplete_function: typing.Callable = attrs.field(default=None)
+
+
 def _get_params(func: typing.Callable):
     # TODO: do dirty patching with the func for defaults
 
-    cmd_params: list[dis_snek.SlashCommandOption] = []
-    autocompletes: dict[str, typing.Callable] = {}
+    cmd_params: list[ExpandedOptions] = []
+    func_params: list[inspect.Parameter] = []
 
     # we need to ignore parameters like self and ctx, so this is the easiest way
     # forgive me, but this is the only reliable way i can find out if the function...
@@ -69,9 +105,12 @@ def _get_params(func: typing.Callable):
     else:
         callback = functools.partial(func, None)
 
-    params = inspect.signature(callback).parameters
+    signature = inspect.signature(callback)
+    params = signature.parameters
     for name, param in params.items():
-        param_to_opt = dis_snek.SlashCommandOption()
+        param_to_opt = ExpandedOptions()
+
+        default = param.default
 
         if (default := param.default) is not param.empty:
             if isinstance(default, Param):
@@ -79,12 +118,17 @@ def _get_params(func: typing.Callable):
                     param_to_opt.name = default.name
                 if default.type:
                     param_to_opt.type = _get_option(default.type)
+                if default.converter:
+                    param_to_opt.converter = default.converter
+                if default.default is not inspect._empty:
+                    param_to_opt.default = default.default
                 if default.description:
                     param_to_opt.description = default.description
                 if default.required:
                     param_to_opt.required = default.required
                 if default.autocomplete:
                     param_to_opt.autocomplete = True
+                    param_to_opt.autocomplete_function = default.autocomplete
                 if default.choices:
                     param_to_opt.choices = default.choices
                 if default.channel_types:
@@ -94,18 +138,16 @@ def _get_params(func: typing.Callable):
                 if default.max_value:
                     param_to_opt.max_value = default.max_value
             else:
+                print("e")
                 param_to_opt.required = False
-                # param_to_opt.default = default
+
+                try:
+                    param_to_opt.converter = _converter_converter(default)
+                except ValueError:
+                    param_to_opt.default = default
 
         if not param_to_opt.name:
             param_to_opt.name = name
-
-        if (
-            (default := param.default) is not param.empty
-            and isinstance(default, Param)
-            and default.autocomplete
-        ):
-            autocompletes[param_to_opt.name] = default.autocomplete
 
         anno = param.annotation
 
@@ -116,4 +158,39 @@ def _get_params(func: typing.Callable):
                     break
 
         param_to_opt.type = _get_option(anno)
+
+        print(param_to_opt)
+        if param_to_opt.converter:
+            func_params.append(param.replace(default=param_to_opt.converter))
+        else:
+            func_params.append(param.replace(default=param_to_opt.default))
+
         cmd_params.append(param_to_opt)
+
+    if cmd_params != sorted(
+        cmd_params,
+        key=lambda x: x.required,
+        reverse=True,
+    ):
+        # this makes the next part easier if we check it now - it makes using
+        # our default hack later a mess
+        raise ValueError("Required options must go before optional options.")
+
+    # deques make it easy to store data backwards
+    new_defaults = collections.deque()
+    for param in reversed(func_params):  # defaults are stored in backwards order
+        new_defaults.appendleft(param.default)
+
+    # yeah, this is a hack, but its what it is lol
+    func.__defaults__ = tuple(new_defaults)
+
+    print(inspect.signature(func).parameters.values())
+
+
+async def test(
+    ctx: dis_snek.Context, option_1: float = None, option_2: str = Param(default="None")
+):
+    pass
+
+
+_get_params(test)
