@@ -3,12 +3,18 @@ repos:
   rev: v2.2.0
   hooks:
     - id: reorder-python-imports
+      language_version: python3.10
 - repo: https://github.com/psf/black
-  rev: 21.12b0
+  rev: 22.1.0
   hooks:
     - id: black
-      args: [--target-version, py310, --experimental-string-processing]
+      args: [--target-version, py310, --preview]
+      language_version: python3.10
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v2.3.0
   hooks:
     - id: trailing-whitespace
+ci:
+  autofix_commit_msg: '[chore] auto fixes from pre-commit.com hooks'
+  autoupdate_branch: 'main'
+  autoupdate_commit_msg: '[chore] pre-commit autoupdate'

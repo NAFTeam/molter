@@ -156,14 +156,10 @@ def _greedy_parse(greedy: converters.Greedy, param: inspect.Parameter):
     if arg in {NoneType, str}:
         raise ValueError(f"Greedy[{_get_name(arg)}] is invalid.")
 
-    if (
-        typing.get_origin(arg)
-        in {
-            typing.Union,
-            UnionType,
-        }
-        and NoneType in typing.get_args(arg)
-    ):
+    if typing.get_origin(arg) in {
+        typing.Union,
+        UnionType,
+    } and NoneType in typing.get_args(arg):
         raise ValueError(f"Greedy[{repr(arg)}] is invalid.")
 
     return arg
