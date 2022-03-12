@@ -20,7 +20,7 @@ class Converter(typing.Protocol[T_co]):
 
 
 def _converter_converter(value: typing.Any):
-    if value is dis_snek.const.Missing:
+    if value is inspect._empty:
         return value
 
     if inspect.isclass(value) and issubclass(value, Converter):
@@ -34,18 +34,18 @@ def _converter_converter(value: typing.Any):
 @attrs.define(slots=True, on_setattr=[attrs.setters.convert, attrs.setters.validate])
 class Param:
     name: str = attrs.field(default=dis_snek.const.Missing)
-    type: "dis_snek.OptionTypes | int | type" = attrs.field(default=dis_snek.const.Missing)
+    type: "dis_snek.OptionTypes | int | type" = attrs.field(
+        default=dis_snek.const.Missing
+    )
     converter: typing.Any = attrs.field(
-        default=dis_snek.const.Missing, converter=_converter_converter
+        default=inspect._empty, converter=_converter_converter
     )
     default: typing.Any = attrs.field(default=inspect._empty)
     description: str = attrs.field(default=dis_snek.const.Missing)
     required: bool = attrs.field(default=dis_snek.const.Missing)
     autocomplete: typing.Callable = attrs.field(default=dis_snek.const.Missing)
     choices: list[dis_snek.SlashCommandChoice | dict] = attrs.field(factory=list)
-    channel_types: list[dis_snek.ChannelTypes | int] = attrs.field(
-        factory=list
-    )
+    channel_types: list[dis_snek.ChannelTypes | int] = attrs.field(factory=list)
     min_value: dis_snek.Absent[float] = attrs.field(default=dis_snek.const.Missing)
     max_value: dis_snek.Absent[float] = attrs.field(default=dis_snek.const.Missing)
 
@@ -87,7 +87,7 @@ def _get_option(t: dis_snek.OptionTypes | type):
 class ExpandedOptions(dis_snek.SlashCommandOption):
     name: str = attrs.field(default=None)
     type: dis_snek.OptionTypes | int = attrs.field(default=None)
-    converter: typing.Any = attrs.field(default=dis_snek.const.Missing)
+    converter: typing.Any = attrs.field(default=inspect._empty)
     default: typing.Any = attrs.field(default=inspect._empty)
     autocomplete_function: typing.Callable = attrs.field(default=None)
 
@@ -118,7 +118,8 @@ def _get_params(func: typing.Callable):
                     param_to_opt.name = default.name
                 if default.type is not dis_snek.const.Missing:
                     param_to_opt.type = _get_option(default.type)
-                if default.converter is not dis_snek.const.Missing:
+                if default.converter is not inspect._empty:
+                    param_to_opt.type = dis_snek.OptionTypes.STRING
                     param_to_opt.converter = default.converter
                 if default.default is not inspect._empty:
                     param_to_opt.required = False
@@ -151,18 +152,20 @@ def _get_params(func: typing.Callable):
 
         anno = param.annotation
 
-        if typing.get_origin(anno) in {typing.Union, UnionType}:
-            for arg in typing.get_args(anno):
-                if arg == NoneType:
-                    param_to_opt.required = False
-                    break
+        if typing.get_origin(anno) in {
+            typing.Union,
+            UnionType,
+        } and NoneType in typing.get_args(anno):
+            param_to_opt.required = False
+            if param_to_opt.default is inspect._empty:
+                param_to_opt.default = None
 
         param_to_opt.type = _get_option(anno)
-
-        if param_to_opt.converter is not dis_snek.const.Missing:
-            func_params.append(param.replace(annotation=param_to_opt.converter, default=param_to_opt.default))
-        else:
-            func_params.append(param.replace(default=param_to_opt.default))
+        func_params.append(
+            param.replace(
+                annotation=param_to_opt.converter, default=param_to_opt.default
+            )
+        )
         cmd_params.append(param_to_opt)
 
     if cmd_params != sorted(
@@ -188,12 +191,16 @@ def _get_params(func: typing.Callable):
     func.__defaults__ = tuple(new_defaults)
     func.__annotations__.update(new_annos)
 
+
 class TestConverter(Converter):
     async def convert(self, ctx: dis_snek.Context, argument: str):
         raise NotImplementedError("Derived classes need to implement this.")
 
+
 async def test(
-    ctx: dis_snek.Context, option_1: float = Param(default=None, converter=TestConverter), option_2: str = Param(default="None")
+    ctx: dis_snek.Context,
+    option_1: float = Param(default=None, converter=TestConverter),
+    option_2: str = Param(default="None"),
 ):
     pass
 
