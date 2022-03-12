@@ -378,6 +378,7 @@ class MolterCommand(dis_snek.MessageCommand):
             name_deq.appendleft(command.name)
             command = command.parent
 
+        name_deq.appendleft(command.name)
         return " ".join(name_deq)
 
     @property
