@@ -630,7 +630,9 @@ class MolterCommand(dis_snek.MessageCommand):
             if param_index < len(self.params):
                 for param in self.params[param_index:]:
                     if not param.optional:
-                        raise errors.BadArgument(f"Missing argument for {param.name}.")
+                        raise errors.BadArgument(
+                            f"{param.name} is a required argument that is missing."
+                        )
                     else:
                         if not param.consume_rest:
                             new_args.append(param.default)
