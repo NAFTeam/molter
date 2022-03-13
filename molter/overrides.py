@@ -80,7 +80,7 @@ class MolterSnake(dis_snek.Snake):
         if not names:
             return None
 
-        cmd = self.commands.get(name[0])
+        cmd = self.commands.get(names[0])
         if not cmd or not getattr(cmd, "command_dict", None):
             return cmd
 
