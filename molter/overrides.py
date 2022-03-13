@@ -124,14 +124,19 @@ class MolterSnake(dis_snek.Snake):
 
             if prefix_used:
                 context = await self.get_context(message)
-                context.invoked_name = ""
                 context.prefix = prefix_used
 
-                content = message.content.removeprefix(prefix_used)
+                # interestingly enough, we cannot count on ctx.invoked_name
+                # being correct as its hard to account for newlines and the like
+                # with the way we get subcommands here
+                # we'll have to reconstruct it by getting the content_parameters
+                # then removing the prefix and the parameters from the message
+                # content
+                content_parameters = message.content.removeprefix(prefix_used)
                 command = self
 
                 while True:
-                    first_word: str = get_first_word(content)
+                    first_word: str = get_first_word(content_parameters)
                     if isinstance(command, MolterCommand):
                         new_command = command.command_dict.get(first_word)
                     else:
@@ -140,8 +145,9 @@ class MolterSnake(dis_snek.Snake):
                         break
 
                     command = new_command
-                    context.invoked_name += f"{first_word} "
-
+                    content_parameters = content_parameters.removeprefix(
+                        first_word
+                    ).strip()
                     if not isinstance(command, MolterCommand):
                         # normal message commands can't have subcommands
                         break
@@ -149,13 +155,16 @@ class MolterSnake(dis_snek.Snake):
                     if command.command_dict and command.hierarchical_checking:
                         await new_command._can_run(context)
 
-                    content = content.removeprefix(first_word).strip()
-
                 if isinstance(command, dis_snek.Snake):
                     command = None
 
                 if command and command.enabled:
-                    context.invoked_name = context.invoked_name.strip()
+                    # yeah, this looks ugly
+                    context.invoked_name = (
+                        message.content.removeprefix(prefix_used)
+                        .removesuffix(content_parameters)
+                        .strip()
+                    )
                     context.args = get_args(context.content_parameters)
                     try:
                         if self.pre_run_callback:
