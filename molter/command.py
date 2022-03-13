@@ -1,6 +1,7 @@
 import collections
 import functools
 import inspect
+import re
 import typing
 from types import NoneType
 from types import UnionType
@@ -11,6 +12,16 @@ from dis_snek.client.utils.input_utils import _quotes
 
 from . import converters
 from . import errors
+
+
+# turns out dis-snek's args thinks newlines are the start of new arguments
+# they aren't, polls.
+# ...but seriously, we do have to work around this, and i don't want to make
+# something only the overrides can do
+_pending_regex = r"(1.*2|[^\t\f\v ]+)"
+_pending_regex = _pending_regex.replace("1", f"[{''.join(list(_quotes.keys()))}]")
+_pending_regex = _pending_regex.replace("2", f"[{''.join(list(_quotes.values()))}]")
+ARGS_PARSE = re.compile(_pending_regex)
 
 
 @attr.define(slots=True)
@@ -582,6 +593,9 @@ class MolterCommand(dis_snek.MessageCommand):
         if len(self.params) == 0:
             return await callback(ctx)
         else:
+            # this is slightly costly, but probably worth it
+            ctx.args = ARGS_PARSE.findall(ctx.content_parameters)
+
             new_args: list[typing.Any] = []
             kwargs: dict[str, typing.Any] = {}
             args = ArgsIterator(tuple(_arg_fix(a) for a in ctx.args))
