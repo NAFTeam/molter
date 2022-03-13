@@ -383,7 +383,7 @@ class MolterCommand(dis_snek.MessageCommand):
 
     @property
     def all_commands(self):
-        return set(self.command_dict.values())
+        return tuple(dict.fromkeys(self.command_dict.values()))
 
     @property
     def signature(self) -> str:
