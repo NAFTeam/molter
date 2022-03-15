@@ -507,7 +507,7 @@ class MolterCommand(dis_snek.MessageCommand):
         if not names:
             return None
 
-        cmd = self.command_dict.get(name[0])
+        cmd = self.command_dict.get(names[0])
         if not cmd or not cmd.command_dict:
             return cmd
 
