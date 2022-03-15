@@ -1,6 +1,6 @@
 repos:
 - repo: https://github.com/asottile/reorder_python_imports
-  rev: v2.2.0
+  rev: v3.0.1
   hooks:
     - id: reorder-python-imports
       language_version: python3.10
@@ -11,7 +11,7 @@ repos:
       args: [--target-version, py310, --preview]
       language_version: python3.10
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v2.3.0
+  rev: v4.1.0
   hooks:
     - id: trailing-whitespace
 ci:
