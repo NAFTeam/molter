@@ -8,6 +8,8 @@ __all__ = ("BadArgument",)
 
 
 class BadArgument(CommandException):
+    """A special exception for invalid arguments when using molter commands."""
+
     def __init__(self, message: typing.Optional[str] = None, *args: typing.Any) -> None:
         if message is not None:
             message = dis_snek.utils.escape_mentions(message)

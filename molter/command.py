@@ -27,6 +27,8 @@ ARGS_PARSE = re.compile(_pending_regex)
 
 @attr.define(slots=True)
 class CommandParameter:
+    """An object representing parameters in a command."""
+
     name: str = attr.field(default=None)
     default: typing.Optional[typing.Any] = attr.field(default=None)
     type: type = attr.field(default=None)
@@ -43,6 +45,12 @@ class CommandParameter:
 
 @attr.define(slots=True)
 class ArgsIterator:
+    """
+    An iterator over the arguments of a command.
+
+    Has functions to control the iteration.
+    """
+
     args: typing.Sequence[str] = attr.field(converter=tuple)
     index: int = attr.field(init=False, default=0)
     length: int = attr.field(init=False, default=0)
@@ -222,6 +230,7 @@ def _arg_fix(arg: str) -> str:
 
 
 async def maybe_coroutine(func: typing.Callable, *args, **kwargs) -> typing.Any:
+    """Allows running either a coroutine or a function."""
     if inspect.iscoroutinefunction(func):
         return await func(*args, **kwargs)
     else:
@@ -360,6 +369,7 @@ class MolterCommand(dis_snek.MessageCommand):
 
     @property
     def qualified_name(self) -> str:
+        """Returns the full qualified name of this command."""
         name_deq = collections.deque()
         command = self
 
@@ -372,6 +382,7 @@ class MolterCommand(dis_snek.MessageCommand):
 
     @property
     def all_commands(self) -> tuple["MolterCommand"]:
+        """Returns all unique subcommands underneath this command."""
         names = {c.name for c in self.command_dict.values()}
         return tuple(self.command_dict[n] for n in names)
 
@@ -432,6 +443,7 @@ class MolterCommand(dis_snek.MessageCommand):
         return " ".join(results)
 
     def add_command(self, cmd: "MolterCommand") -> None:
+        """Adds a command as a subcommand to this command."""
         cmd.parent = self  # just so we know this is a subcommand
 
         cmd_names = frozenset(self.command_dict)
@@ -449,6 +461,11 @@ class MolterCommand(dis_snek.MessageCommand):
             self.command_dict[alias] = cmd
 
     def remove_command(self, name: str) -> None:
+        """
+        Removes a command as a subcommand from this command.
+
+        If an alias is specified, only the alias will be removed.
+        """
         command = self.command_dict.pop(name, None)
 
         if command is None or name in command.aliases:
@@ -458,6 +475,15 @@ class MolterCommand(dis_snek.MessageCommand):
             self.command_dict.pop(alias, None)
 
     def get_command(self, name: str) -> typing.Optional["MolterCommand"]:
+        """
+        Gets a subcommand from this command. Can get subcommands of subcommands if needed.
+
+        Args:
+            name (`str`): The command to search for.
+
+        Returns:
+            `MolterCommand`: The command object, if found.
+        """
         if " " not in name:
             return self.command_dict.get(name)
 
@@ -551,6 +577,13 @@ class MolterCommand(dis_snek.MessageCommand):
         return wrapper
 
     async def call_callback(self, callback: typing.Callable, ctx: dis_snek.MessageContext) -> None:
+        """
+        Runs the callback of this command.
+
+        Args:
+            callback (`typing.Callable`): The callback to run. This is provided for compatibility with dis_snek.
+            ctx (`dis_snek.MessageContext`): The context to use for this command.
+        """
         # sourcery skip: remove-empty-nested-block, remove-redundant-if, remove-unnecessary-else
         if len(self.params) == 0:
             return await callback(ctx)

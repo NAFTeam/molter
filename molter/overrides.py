@@ -60,6 +60,11 @@ class MolterSnake(dis_snek.Snake):
     """A dictionary of registered commands: `{name: command}`"""
 
     def add_message_command(self, command: dis_snek.MessageCommand | MolterCommand) -> None:
+        """Add a message command to the client.
+
+        Args:
+            command (`dis_snek.MessageCommand | MolterCommand`): The command to add.
+        """
         if not isinstance(command, MolterCommand):
             return super().add_message_command(command)
 
@@ -75,6 +80,15 @@ class MolterSnake(dis_snek.Snake):
             raise ValueError(f"Duplicate Command! Multiple commands share the name/alias `{alias}`")
 
     def get_command(self, name: str) -> typing.Optional[dis_snek.MessageCommand | MolterCommand]:
+        """
+        Gets a command by the name specified. Can get subcommands of commmands if needed.
+
+        Args:
+            name (`str`): The name of the command to search for. Can be its fully qualified name.
+
+        Returns:
+            `dis_snek.MessageCommand | MolterCommand`: The command object, if found.
+        """
         if " " not in name:
             return self.commands.get(name)
 
