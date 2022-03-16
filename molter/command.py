@@ -6,7 +6,7 @@ import typing
 from types import NoneType
 from types import UnionType
 
-import attr
+import attrs
 import dis_snek
 from dis_snek.client.utils.input_utils import _quotes
 
@@ -25,25 +25,25 @@ _pending_regex = _pending_regex.replace("2", f"[{''.join(list(_quotes.values()))
 ARGS_PARSE = re.compile(_pending_regex)
 
 
-@attr.define(slots=True)
+@attrs.define(slots=True)
 class CommandParameter:
     """An object representing parameters in a command."""
 
-    name: str = attr.field(default=None)
-    default: typing.Optional[typing.Any] = attr.field(default=None)
-    type: type = attr.field(default=None)
-    converters: list[typing.Callable[[dis_snek.MessageContext, str], typing.Any]] = attr.field(factory=list)
-    greedy: bool = attr.field(default=False)
-    union: bool = attr.field(default=False)
-    variable: bool = attr.field(default=False)
-    consume_rest: bool = attr.field(default=False)
+    name: str = attrs.field(default=None)
+    default: typing.Optional[typing.Any] = attrs.field(default=None)
+    type: type = attrs.field(default=None)
+    converters: list[typing.Callable[[dis_snek.MessageContext, str], typing.Any]] = attrs.field(factory=list)
+    greedy: bool = attrs.field(default=False)
+    union: bool = attrs.field(default=False)
+    variable: bool = attrs.field(default=False)
+    consume_rest: bool = attrs.field(default=False)
 
     @property
     def optional(self) -> bool:
         return self.default != dis_snek.const.MISSING
 
 
-@attr.define(slots=True)
+@attrs.define(slots=True)
 class ArgsIterator:
     """
     An iterator over the arguments of a command.
@@ -51,9 +51,9 @@ class ArgsIterator:
     Has functions to control the iteration.
     """
 
-    args: typing.Sequence[str] = attr.field(converter=tuple)
-    index: int = attr.field(init=False, default=0)
-    length: int = attr.field(init=False, default=0)
+    args: typing.Sequence[str] = attrs.field(converter=tuple)
+    index: int = attrs.field(init=False, default=0)
+    length: int = attrs.field(init=False, default=0)
 
     def __iter__(self) -> "ArgsIterator":
         self.length = len(self.args)
