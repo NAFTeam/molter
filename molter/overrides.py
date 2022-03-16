@@ -1,19 +1,25 @@
 import logging
-import typing
+from typing import Optional
 
-import dis_snek
+from dis_snek.client import Snake
 from dis_snek.client.utils.input_utils import get_args
 from dis_snek.client.utils.input_utils import get_first_word
+from dis_snek.client.const import logger_name, MENTION_PREFIX
+from dis_snek.api.events.discord import MessageCreate
+from dis_snek.models.snek.scale import Scale
+from dis_snek.models.snek.listener import listen
+from dis_snek.models.snek.command import MessageCommand
+from dis_snek.models.snek.application_commands import ComponentCommand, InteractionCommand
 
-from .command import MolterCommand
+from molter.command import MolterCommand
 
 
-log = logging.getLogger(dis_snek.const.logger_name)
+log = logging.getLogger(logger_name)
 
 __all__ = ("MolterScale", "MolterSnake")
 
 
-class MolterScale(dis_snek.Scale):
+class MolterScale(Scale):
     """A custom subclass of `dis_snek.Scale` that properly unloads Molter commands if aliases are used.
 
     Use this alongside `MolterSnake` for the best results.
@@ -23,14 +29,14 @@ class MolterScale(dis_snek.Scale):
     def shed(self) -> None:
         """Called when this Scale is being removed."""
         for func in self._commands:
-            if isinstance(func, dis_snek.ComponentCommand):
+            if isinstance(func, ComponentCommand):
                 for listener in func.listeners:
                     self.bot._component_callbacks.pop(listener)
-            elif isinstance(func, dis_snek.InteractionCommand):
+            elif isinstance(func, InteractionCommand):
                 for scope in func.scopes:
                     if self.bot.interactions.get(scope):
                         self.bot.interactions[scope].pop(func.resolved_name, [])
-            elif isinstance(func, dis_snek.MessageCommand):
+            elif isinstance(func, MessageCommand):
                 # detect if its a molter subcommand
                 # unloading a subcommand means commands that weren't supposed to
                 # get unloaded that happen to have the same name would
@@ -48,7 +54,7 @@ class MolterScale(dis_snek.Scale):
         log.debug(f"{self.name} has been shed")
 
 
-class MolterSnake(dis_snek.Snake):
+class MolterSnake(Snake):
     """
     A custom subclass of `dis_snek.Snake` that allows you to use aliases and subcommands with Molter commands.
 
@@ -56,10 +62,10 @@ class MolterSnake(dis_snek.Snake):
     in the class, as doing so improperly will break alias and/or subcommand support.
     """
 
-    commands: dict[str, dis_snek.MessageCommand | MolterCommand]
+    commands: dict[str, MessageCommand | MolterCommand]
     """A dictionary of registered commands: `{name: command}`"""
 
-    def add_message_command(self, command: dis_snek.MessageCommand | MolterCommand) -> None:
+    def add_message_command(self, command: MessageCommand | MolterCommand) -> None:
         """Add a message command to the client.
 
         Args:
@@ -79,7 +85,7 @@ class MolterSnake(dis_snek.Snake):
                 continue
             raise ValueError(f"Duplicate Command! Multiple commands share the name/alias `{alias}`")
 
-    def get_command(self, name: str) -> typing.Optional[dis_snek.MessageCommand | MolterCommand]:
+    def get_command(self, name: str) -> Optional[MessageCommand | MolterCommand]:
         """
         Gets a command by the name specified. Can get subcommands of commmands if needed.
 
@@ -108,8 +114,8 @@ class MolterSnake(dis_snek.Snake):
 
         return cmd
 
-    @dis_snek.listen("message_create")
-    async def _dispatch_msg_commands(self, event: dis_snek.events.MessageCreate) -> None:
+    @listen("message_create")
+    async def _dispatch_msg_commands(self, event: MessageCreate) -> None:
         """
         Determine if a command is being triggered, and dispatch it.
 
@@ -123,7 +129,7 @@ class MolterSnake(dis_snek.Snake):
         if not message.author.bot:
             prefixes = await self.generate_prefixes(self, message)
 
-            if isinstance(prefixes, str) or prefixes == dis_snek.const.MENTION_PREFIX:
+            if isinstance(prefixes, str) or prefixes == MENTION_PREFIX:
                 # its easier to treat everything as if it may be an iterable
                 # rather than building a special case for this
                 prefixes = (prefixes,)
@@ -131,7 +137,7 @@ class MolterSnake(dis_snek.Snake):
             prefix_used = None
 
             for prefix in prefixes:
-                if prefix == dis_snek.const.MENTION_PREFIX:
+                if prefix == MENTION_PREFIX:
                     if mention := self._mention_reg.search(message.content):
                         prefix = mention.group()
                     else:
@@ -172,7 +178,7 @@ class MolterSnake(dis_snek.Snake):
                     if command.command_dict and command.hierarchical_checking:
                         await new_command._can_run(context)
 
-                if isinstance(command, dis_snek.Snake):
+                if isinstance(command, Snake):
                     command = None
 
                 if command and command.enabled:

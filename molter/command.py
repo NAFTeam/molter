@@ -1,17 +1,21 @@
-import collections
 import functools
 import inspect
 import re
-import typing
-from types import NoneType
-from types import UnionType
+import typing  # it's weird importing get_args and get_origin directly
+from collections import deque
+from types import NoneType, UnionType
+from typing import Optional, Any, Callable, Sequence, Annotated, Literal, Union
 
 import attrs
-import dis_snek
-from dis_snek.client.utils.input_utils import _quotes
 
-from . import converters
-from . import errors
+from dis_snek.client.const import MISSING
+from dis_snek.client.utils.input_utils import _quotes
+from dis_snek.client.utils.attr_utils import define, field, docs
+from dis_snek.models.snek.command import MessageCommand
+from dis_snek.models.snek.context import MessageContext
+
+from molter.errors import BadArgument
+from molter.converters import Converter, LiteralConverter, Greedy, SNEK_OBJECT_TO_CONVERTER
 
 __all__ = ("CommandParameter", "ArgsIterator", "maybe_coroutine", "MolterCommand", "message_command", "msg_command")
 
@@ -30,9 +34,9 @@ class CommandParameter:
     """An object representing parameters in a command."""
 
     name: str = attrs.field(default=None)
-    default: typing.Optional[typing.Any] = attrs.field(default=None)
+    default: Optional[Any] = attrs.field(default=None)
     type: type = attrs.field(default=None)
-    converters: list[typing.Callable[[dis_snek.MessageContext, str], typing.Any]] = attrs.field(factory=list)
+    converters: list[Callable[[MessageContext, str], Any]] = attrs.field(factory=list)
     greedy: bool = attrs.field(default=False)
     union: bool = attrs.field(default=False)
     variable: bool = attrs.field(default=False)
@@ -40,7 +44,7 @@ class CommandParameter:
 
     @property
     def optional(self) -> bool:
-        return self.default != dis_snek.const.MISSING
+        return self.default != MISSING
 
 
 @attrs.define(slots=True)
@@ -51,7 +55,7 @@ class ArgsIterator:
     Has functions to control the iteration.
     """
 
-    args: typing.Sequence[str] = attrs.field(converter=tuple)
+    args: Sequence[str] = attrs.field(converter=tuple)
     index: int = attrs.field(init=False, default=0)
     length: int = attrs.field(init=False, default=0)
 
@@ -67,7 +71,7 @@ class ArgsIterator:
         self.index += 1
         return result
 
-    def consume_rest(self) -> typing.Sequence[str]:
+    def consume_rest(self) -> Sequence[str]:
         result = self.args[self.index - 1 :]
         self.index = self.length
         return result
@@ -83,7 +87,7 @@ class ArgsIterator:
         return self.index >= self.length
 
 
-def _get_name(x: typing.Any) -> str:
+def _get_name(x: Any) -> str:
     try:
         return x.__name__
     except AttributeError:
@@ -97,10 +101,10 @@ def _convert_to_bool(argument: str) -> bool:
     elif lowered in {"no", "n", "false", "f", "0", "disable", "off"}:
         return False
     else:
-        raise errors.BadArgument(f"{argument} is not a recognised boolean option.")
+        raise BadArgument(f"{argument} is not a recognised boolean option.")
 
 
-def _get_from_anno_type(anno: typing.Annotated, name: str) -> typing.Any:
+def _get_from_anno_type(anno: Annotated, name: str) -> Any:
     """
     Handles dealing with Annotated annotations, getting their \
     (first and what should be only) type annotation.
@@ -122,19 +126,19 @@ def _get_from_anno_type(anno: typing.Annotated, name: str) -> typing.Any:
     return args[0]
 
 
-def _get_converter(anno: type, name: str) -> typing.Callable[[dis_snek.MessageContext, str], typing.Any]:  # type: ignore
-    if typing.get_origin(anno) == typing.Annotated:
+def _get_converter(anno: type, name: str) -> Callable[[MessageContext, str], Any]:  # type: ignore
+    if typing.get_origin(anno) == Annotated:
         anno = _get_from_anno_type(anno, name)
 
-    if converter := converters.SNEK_OBJECT_TO_CONVERTER.get(anno, None):
+    if converter := SNEK_OBJECT_TO_CONVERTER.get(anno, None):
         return converter().convert
-    elif inspect.isclass(anno) and issubclass(anno, converters.Converter):
+    elif inspect.isclass(anno) and issubclass(anno, Converter):
         return anno().convert  # type: ignore
     elif hasattr(anno, "convert") and inspect.isfunction(anno.convert):  # type: ignore
         return anno.convert  # type: ignore
-    elif typing.get_origin(anno) is typing.Literal:
+    elif typing.get_origin(anno) is Literal:
         literals = typing.get_args(anno)
-        return converters.LiteralConverter(literals).convert
+        return LiteralConverter(literals).convert
     elif inspect.isfunction(anno):
         num_params = len(inspect.signature(anno).parameters.values())
         match num_params:
@@ -154,25 +158,25 @@ def _get_converter(anno: type, name: str) -> typing.Callable[[dis_snek.MessageCo
         return lambda ctx, arg: anno(arg)
 
 
-def _greedy_parse(greedy: converters.Greedy, param: inspect.Parameter) -> typing.Any:
+def _greedy_parse(greedy: Greedy, param: inspect.Parameter) -> Any:
     if param.kind in {param.KEYWORD_ONLY, param.VAR_POSITIONAL}:
         raise ValueError("Greedy[...] cannot be a variable or keyword-only argument.")
 
     arg = typing.get_args(greedy)[0]
 
-    if typing.get_origin(arg) == typing.Annotated:
+    if typing.get_origin(arg) == Annotated:
         arg = _get_from_anno_type(arg, param.name)
 
     if arg in {NoneType, str}:
         raise ValueError(f"Greedy[{_get_name(arg)}] is invalid.")
 
-    if typing.get_origin(arg) in {typing.Union, UnionType} and NoneType in typing.get_args(arg):
+    if typing.get_origin(arg) in {Union, UnionType} and NoneType in typing.get_args(arg):
         raise ValueError(f"Greedy[{repr(arg)}] is invalid.")
 
     return arg
 
 
-def _get_params(func: typing.Callable) -> list[CommandParameter]:
+def _get_params(func: Callable) -> list[CommandParameter]:
     cmd_params: list[CommandParameter] = []
 
     # we need to ignore parameters like self and ctx, so this is the easiest way
@@ -186,15 +190,15 @@ def _get_params(func: typing.Callable) -> list[CommandParameter]:
     for name, param in params.items():
         cmd_param = CommandParameter()
         cmd_param.name = name
-        cmd_param.default = param.default if param.default is not param.empty else dis_snek.const.MISSING
+        cmd_param.default = param.default if param.default is not param.empty else MISSING
 
         cmd_param.type = anno = param.annotation
 
-        if typing.get_origin(anno) == converters.Greedy:
+        if typing.get_origin(anno) == Greedy:
             anno = _greedy_parse(anno, param)
             cmd_param.greedy = True
 
-        if typing.get_origin(anno) in {typing.Union, UnionType}:
+        if typing.get_origin(anno) in {Union, UnionType}:
             cmd_param.union = True
             for arg in typing.get_args(anno):
                 if arg != NoneType:
@@ -229,7 +233,7 @@ def _arg_fix(arg: str) -> str:
     return arg[1:-1] if arg[0] in _quotes.keys() else arg
 
 
-async def maybe_coroutine(func: typing.Callable, *args, **kwargs) -> typing.Any:
+async def maybe_coroutine(func: Callable, *args, **kwargs) -> Any:
     """Allows running either a coroutine or a function."""
     if inspect.iscoroutinefunction(func):
         return await func(*args, **kwargs)
@@ -237,20 +241,20 @@ async def maybe_coroutine(func: typing.Callable, *args, **kwargs) -> typing.Any:
         return func(*args, **kwargs)
 
 
-async def _convert(param: CommandParameter, ctx: dis_snek.MessageContext, arg: str) -> tuple[typing.Any, bool]:
-    converted = dis_snek.const.MISSING
+async def _convert(param: CommandParameter, ctx: MessageContext, arg: str) -> tuple[Any, bool]:
+    converted = MISSING
     for converter in param.converters:
         try:
             converted = await maybe_coroutine(converter, ctx, arg)
             break
         except Exception as e:
             if not param.union and not param.optional:
-                if isinstance(e, errors.BadArgument):
+                if isinstance(e, BadArgument):
                     raise
-                raise errors.BadArgument(str(e)) from e
+                raise BadArgument(str(e)) from e
 
     used_default = False
-    if converted == dis_snek.const.MISSING:
+    if converted == MISSING:
         if param.optional:
             converted = param.default
             used_default = True
@@ -258,14 +262,14 @@ async def _convert(param: CommandParameter, ctx: dis_snek.MessageContext, arg: s
             union_types = typing.get_args(param.type)
             union_names = tuple(_get_name(t) for t in union_types)
             union_types_str = ", ".join(union_names[:-1]) + f", or {union_names[-1]}"
-            raise errors.BadArgument(f'Could not convert "{arg}" into {union_types_str}.')
+            raise BadArgument(f'Could not convert "{arg}" into {union_types_str}.')
 
     return converted, used_default
 
 
 async def _greedy_convert(
-    param: CommandParameter, ctx: dis_snek.MessageContext, args: ArgsIterator
-) -> tuple[list[typing.Any] | typing.Any, bool]:
+    param: CommandParameter, ctx: MessageContext, args: ArgsIterator
+) -> tuple[list[Any] | Any, bool]:
     args.back()
     broke_off = False
     greedy_args = []
@@ -275,10 +279,10 @@ async def _greedy_convert(
             greedy_arg, used_default = await _convert(param, ctx, arg)
 
             if used_default:
-                raise errors.BadArgument
+                raise BadArgument
 
             greedy_args.append(greedy_arg)
-        except errors.BadArgument:
+        except BadArgument:
             broke_off = True
             break
 
@@ -286,51 +290,44 @@ async def _greedy_convert(
         if param.default:
             greedy_args = param.default  # im sorry, typehinters
         else:
-            raise errors.BadArgument(f"Failed to find any arguments for {repr(param.type)}.")
+            raise BadArgument(f"Failed to find any arguments for {repr(param.type)}.")
 
     return greedy_args, broke_off
 
 
-@dis_snek.define()
-class MolterCommand(dis_snek.MessageCommand):
-    params: list[CommandParameter] = dis_snek.field(
-        metadata=dis_snek.utils.docs("The paramters of the command."),
-    )
-    aliases: list[str] = dis_snek.field(
-        metadata=dis_snek.utils.docs(
+@define()
+class MolterCommand(MessageCommand):
+    params: list[CommandParameter] = field(metadata=docs("The paramters of the command."))
+    aliases: list[str] = field(
+        metadata=docs(
             "The list of aliases the command can be invoked under. Requires one of the override classes to work."
         ),
         factory=list,
     )
-    hidden: bool = dis_snek.field(
-        metadata=dis_snek.utils.docs("If `True`, the default help command does not show this in the help output."),
-        default=False,
+    hidden: bool = field(
+        metadata=docs("If `True`, the default help command does not show this in the help output."), default=False
     )
-    ignore_extra: bool = dis_snek.field(
-        metadata=dis_snek.utils.docs(
+    ignore_extra: bool = field(
+        metadata=docs(
             "If `True`, ignores extraneous strings passed to a command if all its requirements are met (e.g. ?foo a b c"
             " when only expecting a and b). Otherwise, an error is raised. Defaults to True."
         ),
         default=True,
     )
-    hierarchical_checking: bool = dis_snek.field(
-        metadata=dis_snek.utils.docs(
+    hierarchical_checking: bool = field(
+        metadata=docs(
             "If `True` and if the base of a subcommand, every subcommand underneath it will run this command's checks"
             " before its own. Otherwise, only the subcommand's checks are checked."
         ),
         default=True,
     )
-    help: typing.Optional[str] = dis_snek.field(metadata=dis_snek.utils.docs("The long help text for the command."))
-    brief: typing.Optional[str] = dis_snek.field(
-        metadata=dis_snek.utils.docs("The short help text for the command."),
+    help: Optional[str] = field(metadata=docs("The long help text for the command."))
+    brief: Optional[str] = field(metadata=docs("The short help text for the command."))
+    parent: Optional["MolterCommand"] = field(metadata=docs("The parent command, if applicable."), default=None)
+    command_dict: dict[str, "MolterCommand"] = field(
+        metadata=docs("A dict of a subcommand's name and the subcommand for this command."), factory=dict
     )
-    parent: typing.Optional["MolterCommand"] = dis_snek.field(
-        metadata=dis_snek.utils.docs("The parent command, if applicable."), default=None
-    )
-    command_dict: dict[str, "MolterCommand"] = dis_snek.field(
-        metadata=dis_snek.utils.docs("A dict of a subcommand's name and the subcommand for this command."), factory=dict
-    )
-    _usage: typing.Optional[str] = dis_snek.field(default=None)
+    _usage: Optional[str] = field(default=None)
 
     @params.default  # type: ignore
     def _fill_params(self) -> list[CommandParameter]:
@@ -370,7 +367,7 @@ class MolterCommand(dis_snek.MessageCommand):
     @property
     def qualified_name(self) -> str:
         """Returns the full qualified name of this command."""
-        name_deq = collections.deque()
+        name_deq = deque()
         command = self
 
         while command.parent is not None:
@@ -398,7 +395,7 @@ class MolterCommand(dis_snek.MessageCommand):
             anno = param.type
             name = param.name
 
-            if typing.get_origin(anno) == typing.Annotated:
+            if typing.get_origin(anno) == Annotated:
                 # message commands can only have two arguments in an annotation anyways
                 anno = typing.get_args(anno)[1]
 
@@ -407,7 +404,7 @@ class MolterCommand(dis_snek.MessageCommand):
                 if len(union_args) == 2 and param.optional:
                     anno = union_args[0]
 
-            if typing.get_origin(anno) is typing.Literal:
+            if typing.get_origin(anno) is Literal:
                 # it's better to list the values it can be than display the variable name itself
                 name = "|".join(f'"{v}"' if isinstance(v, str) else str(v) for v in typing.get_args(anno))
 
@@ -474,7 +471,7 @@ class MolterCommand(dis_snek.MessageCommand):
         for alias in command.aliases:
             self.command_dict.pop(alias, None)
 
-    def get_command(self, name: str) -> typing.Optional["MolterCommand"]:
+    def get_command(self, name: str) -> Optional["MolterCommand"]:
         """
         Gets a subcommand from this command. Can get subcommands of subcommands if needed.
 
@@ -515,7 +512,7 @@ class MolterCommand(dis_snek.MessageCommand):
         hidden: bool = False,
         ignore_extra: bool = True,
         hierarchical_checking: bool = True,
-    ) -> (typing.Callable[..., "MolterCommand"]):
+    ) -> (Callable[..., "MolterCommand"]):
         """
         A decorator to declare a subcommand for a Molter message command.
 
@@ -558,7 +555,7 @@ class MolterCommand(dis_snek.MessageCommand):
             `molter.MolterCommand`: The command object.
         """
 
-        def wrapper(func: typing.Callable) -> "MolterCommand":
+        def wrapper(func: Callable) -> "MolterCommand":
             cmd = MolterCommand(  # type: ignore
                 callback=func,
                 name=name or func.__name__,
@@ -576,12 +573,12 @@ class MolterCommand(dis_snek.MessageCommand):
 
         return wrapper
 
-    async def call_callback(self, callback: typing.Callable, ctx: dis_snek.MessageContext) -> None:
+    async def call_callback(self, callback: Callable, ctx: MessageContext) -> None:
         """
         Runs the callback of this command.
 
         Args:
-            callback (`typing.Callable`): The callback to run. This is provided for compatibility with dis_snek.
+            callback (`Callable`): The callback to run. This is provided for compatibility with dis_snek.
             ctx (`dis_snek.MessageContext`): The context to use for this command.
         """
         # sourcery skip: remove-empty-nested-block, remove-redundant-if, remove-unnecessary-else
@@ -591,8 +588,8 @@ class MolterCommand(dis_snek.MessageCommand):
             # this is slightly costly, but probably worth it
             ctx.args = ARGS_PARSE.findall(ctx.content_parameters)
 
-            new_args: list[typing.Any] = []
-            kwargs: dict[str, typing.Any] = {}
+            new_args: list[Any] = []
+            kwargs: dict[str, Any] = {}
             args = ArgsIterator(tuple(_arg_fix(a) for a in ctx.args))
             param_index = 0
 
@@ -637,7 +634,7 @@ class MolterCommand(dis_snek.MessageCommand):
             if param_index < len(self.params):
                 for param in self.params[param_index:]:
                     if not param.optional:
-                        raise errors.BadArgument(f"{param.name} is a required argument that is missing.")
+                        raise BadArgument(f"{param.name} is a required argument that is missing.")
                     else:
                         if not param.consume_rest:
                             new_args.append(param.default)
@@ -645,7 +642,7 @@ class MolterCommand(dis_snek.MessageCommand):
                             kwargs[param.name] = param.default
                             break
             elif not self.ignore_extra and not args.finished:
-                raise errors.BadArgument(f"Too many arguments passed to {self.name}.")
+                raise BadArgument(f"Too many arguments passed to {self.name}.")
 
             return await callback(ctx, *new_args, **kwargs)
 
@@ -661,7 +658,7 @@ def message_command(
     hidden: bool = False,
     ignore_extra: bool = True,
     hierarchical_checking: bool = True,
-) -> typing.Callable[..., MolterCommand]:
+) -> Callable[..., MolterCommand]:
     """
     A decorator to declare a coroutine as a Molter message command.
 
@@ -704,7 +701,7 @@ def message_command(
         `molter.MolterCommand`: The command object.
     """
 
-    def wrapper(func: typing.Callable) -> MolterCommand:
+    def wrapper(func: Callable) -> MolterCommand:
         return MolterCommand(  # type: ignore
             callback=func,
             name=name or func.__name__,

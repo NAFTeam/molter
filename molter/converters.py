@@ -1,9 +1,26 @@
 import re
-import typing
+import typing  # importing functions/decorators directly is weird
+from typing import TypeVar, Protocol, Any, Optional, List
 
-import dis_snek
+from dis_snek.client.errors import Forbidden, HTTPException
+from dis_snek.models.discord.role import Role
+from dis_snek.models.discord.guild import Guild
+from dis_snek.models.discord.message import Message
+from dis_snek.models.discord.user import User, Member
+from dis_snek.models.discord.enums import ChannelTypes
+from dis_snek.models.discord.snowflake import SnowflakeObject
+from dis_snek.models.discord.emoji import PartialEmoji, CustomEmoji
+from dis_snek.models.discord.channel import (
+    BaseChannel,
+    GuildChannel,
+    GuildVoice,
+    GuildText,
+    ThreadChannel,
+    TYPE_MESSAGEABLE_CHANNEL,
+)
+from dis_snek.models.snek.context import MessageContext
 
-from . import errors
+from molter.errors import BadArgument
 
 __all__ = (
     "Converter",
@@ -28,23 +45,23 @@ __all__ = (
     "SNEK_OBJECT_TO_CONVERTER",
 )
 
-T = typing.TypeVar("T")
-T_co = typing.TypeVar("T_co", covariant=True)
+T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
 
 
 @typing.runtime_checkable
-class Converter(typing.Protocol[T_co]):
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> T_co:
+class Converter(Protocol[T_co]):
+    async def convert(self, ctx: MessageContext, argument: str) -> T_co:
         raise NotImplementedError("Derived classes need to implement this.")
 
 
 class LiteralConverter(Converter):
-    values: typing.Dict
+    values: dict
 
-    def __init__(self, args: typing.Any) -> None:
+    def __init__(self, args: Any) -> None:
         self.values = {arg: type(arg) for arg in args}
 
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> typing.Any:
+    async def convert(self, ctx: MessageContext, argument: str) -> Any:
         for arg, converter in self.values.items():
             try:
                 if arg == converter(argument):
@@ -54,7 +71,7 @@ class LiteralConverter(Converter):
 
         literals_list = [str(a) for a in self.values.keys()]
         literals_str = ", ".join(literals_list[:-1]) + f", or {literals_list[-1]}"
-        raise errors.BadArgument(f'Could not convert "{argument}" into one of {literals_str}.')
+        raise BadArgument(f'Could not convert "{argument}" into one of {literals_str}.')
 
 
 _ID_REGEX = re.compile(r"([0-9]{15,})$")
@@ -62,22 +79,22 @@ _ID_REGEX = re.compile(r"([0-9]{15,})$")
 
 class IDConverter(Converter[T_co]):
     @staticmethod
-    def _get_id_match(argument: str) -> typing.Optional[re.Match[str]]:
+    def _get_id_match(argument: str) -> Optional[re.Match[str]]:
         return _ID_REGEX.match(argument)
 
 
-class SnowflakeConverter(IDConverter[dis_snek.SnowflakeObject]):
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> dis_snek.SnowflakeObject:
+class SnowflakeConverter(IDConverter[SnowflakeObject]):
+    async def convert(self, ctx: MessageContext, argument: str) -> SnowflakeObject:
         match = self._get_id_match(argument) or re.match(r"<(?:@(?:!|&)?|#)([0-9]{15,})>$", argument)
 
         if match is None:
-            raise errors.BadArgument(argument)
+            raise BadArgument(argument)
 
-        return dis_snek.SnowflakeObject(int(match.group(1)))  # type: ignore
+        return SnowflakeObject(int(match.group(1)))  # type: ignore
 
 
-class MemberConverter(IDConverter[dis_snek.Member]):
-    def _get_member_from_list(self, members: list[dis_snek.Member], argument: str) -> typing.Optional[dis_snek.Member]:
+class MemberConverter(IDConverter[Member]):
+    def _get_member_from_list(self, members: list[Member], argument: str) -> Optional[Member]:
         result = None
         if len(argument) > 5 and argument[-5] == "#":
             result = next((m for m in members if m.user.tag == argument), None)
@@ -87,9 +104,9 @@ class MemberConverter(IDConverter[dis_snek.Member]):
 
         return result
 
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> dis_snek.Member:
+    async def convert(self, ctx: MessageContext, argument: str) -> Member:
         if not ctx.guild:
-            raise errors.BadArgument("This command cannot be used in private messages.")
+            raise BadArgument("This command cannot be used in private messages.")
 
         match = self._get_id_match(argument) or re.match(r"<@!?([0-9]{15,})>$", argument)
         result = None
@@ -107,13 +124,13 @@ class MemberConverter(IDConverter[dis_snek.Member]):
             result = self._get_member_from_list(members, argument)
 
         if not result:
-            raise errors.BadArgument(f'Member "{argument}" not found.')
+            raise BadArgument(f'Member "{argument}" not found.')
 
         return result
 
 
-class UserConverter(IDConverter[dis_snek.User]):
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> dis_snek.User:
+class UserConverter(IDConverter[User]):
+    async def convert(self, ctx: MessageContext, argument: str) -> User:
         match = self._get_id_match(argument) or re.match(r"<@!?([0-9]{15,})>$", argument)
         result = None
 
@@ -127,16 +144,16 @@ class UserConverter(IDConverter[dis_snek.User]):
                 result = next((u for u in ctx.bot.cache.user_cache.values() if u.username == argument), None)
 
         if not result:
-            raise errors.BadArgument(f'User "{argument}" not found.')
+            raise BadArgument(f'User "{argument}" not found.')
 
         return result
 
 
 class ChannelConverter(IDConverter[T_co]):
-    def _check(self, result: dis_snek.BaseChannel) -> bool:
+    def _check(self, result: BaseChannel) -> bool:
         return True
 
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> T_co:
+    async def convert(self, ctx: MessageContext, argument: str) -> T_co:
         match = self._get_id_match(argument) or re.match(r"<#([0-9]{15,})>$", argument)
         result = None
 
@@ -146,50 +163,50 @@ class ChannelConverter(IDConverter[T_co]):
             result = next((c for c in ctx.guild.channels if c.name == argument), None)
 
         if not result:
-            raise errors.BadArgument(f'Channel "{argument}" not found.')
+            raise BadArgument(f'Channel "{argument}" not found.')
 
         if self._check(result):
             return result  # type: ignore
 
-        raise errors.BadArgument(f'Channel "{argument}" not found.')
+        raise BadArgument(f'Channel "{argument}" not found.')
 
 
-class BaseChannelConverter(ChannelConverter[dis_snek.BaseChannel]):
+class BaseChannelConverter(ChannelConverter[BaseChannel]):
     pass
 
 
-class TextChannelConverter(ChannelConverter[dis_snek.TYPE_MESSAGEABLE_CHANNEL]):
-    def _check(self, result: dis_snek.BaseChannel) -> bool:
-        return (isinstance(result.type, dis_snek.enums.ChannelTypes) and not result.type.voice) or result.type not in {
+class TextChannelConverter(ChannelConverter[TYPE_MESSAGEABLE_CHANNEL]):
+    def _check(self, result: BaseChannel) -> bool:
+        return (isinstance(result.type, ChannelTypes) and not result.type.voice) or result.type not in {
             2,
             13,
         }
 
 
-class GuildChannelConverter(ChannelConverter[dis_snek.GuildChannel]):
-    def _check(self, result: dis_snek.BaseChannel) -> bool:
-        return isinstance(result, dis_snek.GuildChannel)
+class GuildChannelConverter(ChannelConverter[GuildChannel]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, GuildChannel)
 
 
-class GuildTextConverter(ChannelConverter[dis_snek.GuildText]):
-    def _check(self, result: dis_snek.BaseChannel) -> bool:
-        return isinstance(result, dis_snek.GuildText)
+class GuildTextConverter(ChannelConverter[GuildText]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, GuildText)
 
 
-class GuildVoiceConverter(ChannelConverter[dis_snek.GuildVoice]):
-    def _check(self, result: dis_snek.BaseChannel) -> bool:
-        return isinstance(result, dis_snek.GuildVoice)
+class GuildVoiceConverter(ChannelConverter[GuildVoice]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, GuildVoice)
 
 
-class ThreadChannelConverter(ChannelConverter[dis_snek.ThreadChannel]):
-    def _check(self, result: dis_snek.BaseChannel) -> bool:
-        return isinstance(result, dis_snek.ThreadChannel)
+class ThreadChannelConverter(ChannelConverter[ThreadChannel]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, ThreadChannel)
 
 
-class RoleConverter(IDConverter[dis_snek.Role]):
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> dis_snek.Role:
+class RoleConverter(IDConverter[Role]):
+    async def convert(self, ctx: MessageContext, argument: str) -> Role:
         if not ctx.guild:
-            raise errors.BadArgument("This command cannot be used in private messages.")
+            raise BadArgument("This command cannot be used in private messages.")
 
         match = self._get_id_match(argument) or re.match(r"<@&([0-9]{15,})>$", argument)
         result = None
@@ -200,13 +217,13 @@ class RoleConverter(IDConverter[dis_snek.Role]):
             result = next((r for r in ctx.guild.roles if r.name == argument), None)
 
         if not result:
-            raise errors.BadArgument(f'Role "{argument}" not found.')
+            raise BadArgument(f'Role "{argument}" not found.')
 
         return result
 
 
-class GuildConverter(IDConverter[dis_snek.Guild]):
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> dis_snek.Guild:
+class GuildConverter(IDConverter[Guild]):
+    async def convert(self, ctx: MessageContext, argument: str) -> Guild:
         match = self._get_id_match(argument)
         result = None
 
@@ -216,28 +233,28 @@ class GuildConverter(IDConverter[dis_snek.Guild]):
             result = next((g for g in ctx.bot.guilds if g.name == argument), None)
 
         if not result:
-            raise errors.BadArgument(f'Guild "{argument}" not found.')
+            raise BadArgument(f'Guild "{argument}" not found.')
 
         return result
 
 
-class PartialEmojiConverter(IDConverter[dis_snek.PartialEmoji]):
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> dis_snek.PartialEmoji:
+class PartialEmojiConverter(IDConverter[PartialEmoji]):
+    async def convert(self, ctx: MessageContext, argument: str) -> PartialEmoji:
 
         if match := self._get_id_match(argument) or re.match(r"<a?:[a-zA-Z0-9\_]{1,32}:([0-9]{15,})>$", argument):
             emoji_animated = bool(match.group(1))
             emoji_name = match.group(2)
             emoji_id = int(match.group(3))
 
-            return dis_snek.PartialEmoji(id=emoji_id, name=emoji_name, animated=emoji_animated)  # type: ignore
+            return PartialEmoji(id=emoji_id, name=emoji_name, animated=emoji_animated)  # type: ignore
 
-        raise errors.BadArgument(f'Couldn\'t convert "{argument}" to {dis_snek.PartialEmoji.__name__}.')
+        raise BadArgument(f'Couldn\'t convert "{argument}" to {PartialEmoji.__name__}.')
 
 
-class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> dis_snek.CustomEmoji:
+class CustomEmojiConverter(IDConverter[CustomEmoji]):
+    async def convert(self, ctx: MessageContext, argument: str) -> CustomEmoji:
         if not ctx.guild:
-            raise errors.BadArgument("This command cannot be used in private messages.")
+            raise BadArgument("This command cannot be used in private messages.")
 
         match = self._get_id_match(argument) or re.match(r"<a?:[a-zA-Z0-9\_]{1,32}:([0-9]{15,})>$", argument)
         result = None
@@ -254,12 +271,12 @@ class CustomEmojiConverter(IDConverter[dis_snek.CustomEmoji]):
                 result = next((e for e in emojis if e.name == argument))
 
         if not result:
-            raise errors.BadArgument(f'Emoji "{argument}" not found.')
+            raise BadArgument(f'Emoji "{argument}" not found.')
 
         return result
 
 
-class MessageConverter(Converter[dis_snek.Message]):
+class MessageConverter(Converter[Message]):
     # either just the id or <chan_id>-<mes_id>, a format you can get by shift clicking "copy id"
     _ID_REGEX = re.compile(r"(?:(?P<channel_id>[0-9]{15,})-)?(?P<message_id>[0-9]{15,})")
     # of course, having a way to get it from a link is nice
@@ -267,10 +284,10 @@ class MessageConverter(Converter[dis_snek.Message]):
         r"https?://[\S]*?discord(?:app)?\.com/channels/(?P<guild_id>[0-9]{15,}|@me)/(?P<channel_id>[0-9]{15,})/(?P<message_id>[0-9]{15,})\/?$"
     )
 
-    async def convert(self, ctx: dis_snek.MessageContext, argument: str) -> dis_snek.Message:
+    async def convert(self, ctx: MessageContext, argument: str) -> Message:
         match = self._ID_REGEX.match(argument) or self._MESSAGE_LINK_REGEX.match(argument)
         if not match:
-            raise errors.BadArgument(f'Message "{argument}" not found.')
+            raise BadArgument(f'Message "{argument}" not found.')
 
         data = match.groupdict()
 
@@ -286,15 +303,15 @@ class MessageConverter(Converter[dis_snek.Message]):
             # this takes less possible requests than getting the guild and/or channel
             mes = await ctx.bot.cache.fetch_message(channel_id, message_id)
             if mes._guild_id != guild_id:
-                raise errors.BadArgument(f'Message "{argument}" not found.')
+                raise BadArgument(f'Message "{argument}" not found.')
             return mes
-        except dis_snek.errors.Forbidden as e:
-            raise errors.BadArgument(f"Cannot read messages for <#{channel_id}>.") from e
-        except dis_snek.errors.HTTPException as e:
-            raise errors.BadArgument(f'Message "{argument}" not found.') from e
+        except Forbidden as e:
+            raise BadArgument(f"Cannot read messages for <#{channel_id}>.") from e
+        except HTTPException as e:
+            raise BadArgument(f'Message "{argument}" not found.') from e
 
 
-class Greedy(typing.List[T]):
+class Greedy(List[T]):
     # this class doesn't actually do a whole lot
     # it's more or less simply a note to the parameter
     # getter
@@ -302,17 +319,17 @@ class Greedy(typing.List[T]):
 
 
 SNEK_OBJECT_TO_CONVERTER: dict[type, type[Converter]] = {
-    dis_snek.SnowflakeObject: SnowflakeConverter,
-    dis_snek.Member: MemberConverter,
-    dis_snek.User: UserConverter,
-    dis_snek.BaseChannel: BaseChannelConverter,
-    dis_snek.GuildChannel: GuildChannelConverter,
-    dis_snek.GuildText: GuildTextConverter,
-    dis_snek.GuildVoice: GuildVoiceConverter,
-    dis_snek.ThreadChannel: ThreadChannelConverter,
-    dis_snek.Role: RoleConverter,
-    dis_snek.Guild: GuildConverter,
-    dis_snek.PartialEmoji: PartialEmojiConverter,
-    dis_snek.CustomEmoji: CustomEmojiConverter,
-    dis_snek.Message: MessageConverter,
+    SnowflakeObject: SnowflakeConverter,
+    Member: MemberConverter,
+    User: UserConverter,
+    BaseChannel: BaseChannelConverter,
+    GuildChannel: GuildChannelConverter,
+    GuildText: GuildTextConverter,
+    GuildVoice: GuildVoiceConverter,
+    ThreadChannel: ThreadChannelConverter,
+    Role: RoleConverter,
+    Guild: GuildConverter,
+    PartialEmoji: PartialEmojiConverter,
+    CustomEmoji: CustomEmojiConverter,
+    Message: MessageConverter,
 }
