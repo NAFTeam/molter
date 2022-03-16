@@ -10,9 +10,12 @@ from .command import MolterCommand
 
 log = logging.getLogger(dis_snek.const.logger_name)
 
+__all__ = ("MolterScale", "MolterSnake")
+
 
 class MolterScale(dis_snek.Scale):
     """A custom subclass of `dis_snek.Scale` that properly unloads Molter commands if aliases are used.
+
     Use this alongside `MolterSnake` for the best results.
     Be careful about overriding the `shed` functions, as doing so improperly will break aliases unloading.
     """
@@ -48,6 +51,7 @@ class MolterScale(dis_snek.Scale):
 class MolterSnake(dis_snek.Snake):
     """
     A custom subclass of `dis_snek.Snake` that allows you to use aliases and subcommands with Molter commands.
+
     Be careful about overriding the `add_message_command` and `_dispatch_msg_commands` functions
     in the class, as doing so improperly will break alias and/or subcommand support.
     """
@@ -55,7 +59,7 @@ class MolterSnake(dis_snek.Snake):
     commands: dict[str, dis_snek.MessageCommand | MolterCommand]
     """A dictionary of registered commands: `{name: command}`"""
 
-    def add_message_command(self, command: dis_snek.MessageCommand | MolterCommand):
+    def add_message_command(self, command: dis_snek.MessageCommand | MolterCommand) -> None:
         if not isinstance(command, MolterCommand):
             return super().add_message_command(command)
 
@@ -68,11 +72,9 @@ class MolterSnake(dis_snek.Snake):
             if alias not in self.commands:
                 self.commands[alias] = command
                 continue
-            raise ValueError(
-                f"Duplicate Command! Multiple commands share the name/alias `{alias}`"
-            )
+            raise ValueError(f"Duplicate Command! Multiple commands share the name/alias `{alias}`")
 
-    def get_command(self, name: str):
+    def get_command(self, name: str) -> typing.Optional[dis_snek.MessageCommand | MolterCommand]:
         if " " not in name:
             return self.commands.get(name)
 
@@ -93,9 +95,12 @@ class MolterSnake(dis_snek.Snake):
         return cmd
 
     @dis_snek.listen("message_create")
-    async def _dispatch_msg_commands(self, event: dis_snek.events.MessageCreate):
-        """Determine if a command is being triggered, and dispatch it.
-        This special version for Molter also adds support for subcommands."""
+    async def _dispatch_msg_commands(self, event: dis_snek.events.MessageCreate) -> None:
+        """
+        Determine if a command is being triggered, and dispatch it.
+
+        This special version for Molter also adds support for subcommands.
+        """
         message = event.message
 
         if not message.content:
@@ -145,9 +150,7 @@ class MolterSnake(dis_snek.Snake):
                         break
 
                     command = new_command
-                    content_parameters = content_parameters.removeprefix(
-                        first_word
-                    ).strip()
+                    content_parameters = content_parameters.removeprefix(first_word).strip()
                     if not isinstance(command, MolterCommand):
                         # normal message commands can't have subcommands
                         break
@@ -161,9 +164,7 @@ class MolterSnake(dis_snek.Snake):
                 if command and command.enabled:
                     # yeah, this looks ugly
                     context.invoked_name = (
-                        message.content.removeprefix(prefix_used)
-                        .removesuffix(content_parameters)
-                        .strip()
+                        message.content.removeprefix(prefix_used).removesuffix(content_parameters).strip()
                     )
                     context.args = get_args(context.content_parameters)
                     try:
