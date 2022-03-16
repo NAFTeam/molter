@@ -117,62 +117,6 @@ class SnowflakeConverter(IDConverter[SnowflakeObject]):
         return SnowflakeObject(int(match.group(1)))  # type: ignore
 
 
-class MemberConverter(IDConverter[Member]):
-    def _get_member_from_list(self, members: list[Member], argument: str) -> Optional[Member]:
-        result = None
-        if len(argument) > 5 and argument[-5] == "#":
-            result = next((m for m in members if m.user.tag == argument), None)
-
-        if not result:
-            result = next((m for m in members if m.display_name == argument or m.user.username == argument), None)
-
-        return result
-
-    async def convert(self, ctx: Context, argument: str) -> Member:
-        if not ctx.guild:
-            raise BadArgument("This command cannot be used in private messages.")
-
-        match = self._get_id_match(argument) or re.match(r"<@!?([0-9]{15,})>$", argument)
-        result = None
-
-        if match:
-            result = await ctx.guild.fetch_member(int(match.group(1)))
-        elif ctx.guild.chunked:
-            result = self._get_member_from_list(ctx.guild.members, argument)
-        else:
-            query = argument
-            if len(argument) > 5 and argument[-5] == "#":
-                query, _, _ = argument.rpartition("#")
-
-            members = await ctx.guild.search_members(query, limit=100)
-            result = self._get_member_from_list(members, argument)
-
-        if not result:
-            raise BadArgument(f'Member "{argument}" not found.')
-
-        return result
-
-
-class UserConverter(IDConverter[User]):
-    async def convert(self, ctx: Context, argument: str) -> User:
-        match = self._get_id_match(argument) or re.match(r"<@!?([0-9]{15,})>$", argument)
-        result = None
-
-        if match:
-            result = await ctx.bot.fetch_user(int(match.group(1)))
-        else:
-            if len(argument) > 5 and argument[-5] == "#":
-                result = next((u for u in ctx.bot.cache.user_cache.values() if u.tag == argument), None)
-
-            if not result:
-                result = next((u for u in ctx.bot.cache.user_cache.values() if u.username == argument), None)
-
-        if not result:
-            raise BadArgument(f'User "{argument}" not found.')
-
-        return result
-
-
 class ChannelConverter(IDConverter[T_co]):
     def _check(self, result: BaseChannel) -> bool:
         return True
@@ -279,6 +223,113 @@ class MessageableChannelConverter(ChannelConverter[TYPE_MESSAGEABLE_CHANNEL]):
         }
 
 
+class UserConverter(IDConverter[User]):
+    async def convert(self, ctx: Context, argument: str) -> User:
+        match = self._get_id_match(argument) or re.match(r"<@!?([0-9]{15,})>$", argument)
+        result = None
+
+        if match:
+            result = await ctx.bot.fetch_user(int(match.group(1)))
+        else:
+            if len(argument) > 5 and argument[-5] == "#":
+                result = next((u for u in ctx.bot.cache.user_cache.values() if u.tag == argument), None)
+
+            if not result:
+                result = next((u for u in ctx.bot.cache.user_cache.values() if u.username == argument), None)
+
+        if not result:
+            raise BadArgument(f'User "{argument}" not found.')
+
+        return result
+
+
+class MemberConverter(IDConverter[Member]):
+    def _get_member_from_list(self, members: list[Member], argument: str) -> Optional[Member]:
+        result = None
+        if len(argument) > 5 and argument[-5] == "#":
+            result = next((m for m in members if m.user.tag == argument), None)
+
+        if not result:
+            result = next((m for m in members if m.display_name == argument or m.user.username == argument), None)
+
+        return result
+
+    async def convert(self, ctx: Context, argument: str) -> Member:
+        if not ctx.guild:
+            raise BadArgument("This command cannot be used in private messages.")
+
+        match = self._get_id_match(argument) or re.match(r"<@!?([0-9]{15,})>$", argument)
+        result = None
+
+        if match:
+            result = await ctx.guild.fetch_member(int(match.group(1)))
+        elif ctx.guild.chunked:
+            result = self._get_member_from_list(ctx.guild.members, argument)
+        else:
+            query = argument
+            if len(argument) > 5 and argument[-5] == "#":
+                query, _, _ = argument.rpartition("#")
+
+            members = await ctx.guild.search_members(query, limit=100)
+            result = self._get_member_from_list(members, argument)
+
+        if not result:
+            raise BadArgument(f'Member "{argument}" not found.')
+
+        return result
+
+
+class MessageConverter(Converter[Message]):
+    # either just the id or <chan_id>-<mes_id>, a format you can get by shift clicking "copy id"
+    _ID_REGEX = re.compile(r"(?:(?P<channel_id>[0-9]{15,})-)?(?P<message_id>[0-9]{15,})")
+    # of course, having a way to get it from a link is nice
+    _MESSAGE_LINK_REGEX = re.compile(
+        r"https?://[\S]*?discord(?:app)?\.com/channels/(?P<guild_id>[0-9]{15,}|@me)/(?P<channel_id>[0-9]{15,})/(?P<message_id>[0-9]{15,})\/?$"
+    )
+
+    async def convert(self, ctx: Context, argument: str) -> Message:
+        match = self._ID_REGEX.match(argument) or self._MESSAGE_LINK_REGEX.match(argument)
+        if not match:
+            raise BadArgument(f'Message "{argument}" not found.')
+
+        data = match.groupdict()
+
+        message_id = data["message_id"]
+        channel_id = ctx.channel.id if not data.get("channel_id") else int(data["channel_id"])
+
+        # this guild checking is technically unnecessary, but we do it just in case
+        # it means a user cant just provide an invalid guild id and still get a message
+        guild_id = ctx.guild_id if not data.get("guild_id") else data["guild_id"]
+        guild_id = int(guild_id) if guild_id != "@me" else None
+
+        try:
+            # this takes less possible requests than getting the guild and/or channel
+            mes = await ctx.bot.cache.fetch_message(channel_id, message_id)
+            if mes._guild_id != guild_id:
+                raise BadArgument(f'Message "{argument}" not found.')
+            return mes
+        except Forbidden as e:
+            raise BadArgument(f"Cannot read messages for <#{channel_id}>.") from e
+        except HTTPException as e:
+            raise BadArgument(f'Message "{argument}" not found.') from e
+
+
+class GuildConverter(IDConverter[Guild]):
+    async def convert(self, ctx: Context, argument: str) -> Guild:
+        match = self._get_id_match(argument)
+        result = None
+
+        if match:
+            result = await ctx.bot.fetch_guild(int(match.group(1)))
+        else:
+            result = next((g for g in ctx.bot.guilds if g.name == argument), None)
+
+        if not result:
+            raise BadArgument(f'Guild "{argument}" not found.')
+
+        return result
+
+
 class RoleConverter(IDConverter[Role]):
     async def convert(self, ctx: Context, argument: str) -> Role:
         if not ctx.guild:
@@ -294,22 +345,6 @@ class RoleConverter(IDConverter[Role]):
 
         if not result:
             raise BadArgument(f'Role "{argument}" not found.')
-
-        return result
-
-
-class GuildConverter(IDConverter[Guild]):
-    async def convert(self, ctx: Context, argument: str) -> Guild:
-        match = self._get_id_match(argument)
-        result = None
-
-        if match:
-            result = await ctx.bot.fetch_guild(int(match.group(1)))
-        else:
-            result = next((g for g in ctx.bot.guilds if g.name == argument), None)
-
-        if not result:
-            raise BadArgument(f'Guild "{argument}" not found.')
 
         return result
 
@@ -352,41 +387,6 @@ class CustomEmojiConverter(IDConverter[CustomEmoji]):
         return result
 
 
-class MessageConverter(Converter[Message]):
-    # either just the id or <chan_id>-<mes_id>, a format you can get by shift clicking "copy id"
-    _ID_REGEX = re.compile(r"(?:(?P<channel_id>[0-9]{15,})-)?(?P<message_id>[0-9]{15,})")
-    # of course, having a way to get it from a link is nice
-    _MESSAGE_LINK_REGEX = re.compile(
-        r"https?://[\S]*?discord(?:app)?\.com/channels/(?P<guild_id>[0-9]{15,}|@me)/(?P<channel_id>[0-9]{15,})/(?P<message_id>[0-9]{15,})\/?$"
-    )
-
-    async def convert(self, ctx: Context, argument: str) -> Message:
-        match = self._ID_REGEX.match(argument) or self._MESSAGE_LINK_REGEX.match(argument)
-        if not match:
-            raise BadArgument(f'Message "{argument}" not found.')
-
-        data = match.groupdict()
-
-        message_id = data["message_id"]
-        channel_id = ctx.channel.id if not data.get("channel_id") else int(data["channel_id"])
-
-        # this guild checking is technically unnecessary, but we do it just in case
-        # it means a user cant just provide an invalid guild id and still get a message
-        guild_id = ctx.guild_id if not data.get("guild_id") else data["guild_id"]
-        guild_id = int(guild_id) if guild_id != "@me" else None
-
-        try:
-            # this takes less possible requests than getting the guild and/or channel
-            mes = await ctx.bot.cache.fetch_message(channel_id, message_id)
-            if mes._guild_id != guild_id:
-                raise BadArgument(f'Message "{argument}" not found.')
-            return mes
-        except Forbidden as e:
-            raise BadArgument(f"Cannot read messages for <#{channel_id}>.") from e
-        except HTTPException as e:
-            raise BadArgument(f'Message "{argument}" not found.') from e
-
-
 class Greedy(List[T]):
     # this class doesn't actually do a whole lot
     # it's more or less simply a note to the parameter
@@ -396,8 +396,6 @@ class Greedy(List[T]):
 
 SNEK_OBJECT_TO_CONVERTER: dict[type, type[Converter]] = {
     SnowflakeObject: SnowflakeConverter,
-    Member: MemberConverter,
-    User: UserConverter,
     BaseChannel: BaseChannelConverter,
     DMChannel: DMChannelConverter,
     DM: DMConverter,
@@ -419,9 +417,11 @@ SNEK_OBJECT_TO_CONVERTER: dict[type, type[Converter]] = {
     TYPE_THREAD_CHANNEL: ThreadChannelConverter,
     TYPE_VOICE_CHANNEL: GuildVoiceConverter,
     TYPE_MESSAGEABLE_CHANNEL: MessageableChannelConverter,
-    Role: RoleConverter,
+    User: UserConverter,
+    Member: MemberConverter,
+    Message: MessageConverter,
     Guild: GuildConverter,
+    Role: RoleConverter,
     PartialEmoji: PartialEmojiConverter,
     CustomEmoji: CustomEmojiConverter,
-    Message: MessageConverter,
 }
