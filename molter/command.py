@@ -321,6 +321,7 @@ class MolterCommand(dis_snek.MessageCommand):
     command_dict: dict[str, "MolterCommand"] = dis_snek.field(
         metadata=dis_snek.utils.docs("A dict of a subcommand's name and the subcommand for this command."), factory=dict
     )
+    _usage: typing.Optional[str] = dis_snek.field(default=None)
 
     @params.default  # type: ignore
     def _fill_params(self) -> list[CommandParameter]:
@@ -342,6 +343,20 @@ class MolterCommand(dis_snek.MessageCommand):
 
         if self.brief is None:
             self.brief = self.help.splitlines()[0] if self.help is not None else None
+
+    @property
+    def usage(self) -> str:
+        """
+        A string displaying how the command can be used.
+
+        If no string is set, it will default to the command's signature.
+        Useful for help commands.
+        """
+        return self._usage or self.signature
+
+    @usage.setter
+    def usage(self, usage: str) -> None:
+        self._usage = usage
 
     @property
     def qualified_name(self) -> str:
@@ -469,6 +484,7 @@ class MolterCommand(dis_snek.MessageCommand):
         aliases: list[str] = None,
         help: str = None,
         brief: str = None,
+        usage: str = None,
         enabled: bool = True,
         hidden: bool = False,
         ignore_extra: bool = True,
@@ -490,6 +506,10 @@ class MolterCommand(dis_snek.MessageCommand):
 
             brief (`str`, optional): The short help text for the command.
             Defaults to the first line of the help text, if there is one.
+
+            usage(`str`, optional): A string displaying how the command
+            can be used. If no string is set, it will default to the
+            command's signature. Useful for help commands.
 
             enabled (`bool`, optional): Whether this command can be run
             at all. Defaults to True.
@@ -519,6 +539,7 @@ class MolterCommand(dis_snek.MessageCommand):
                 aliases=aliases or [],
                 help=help,
                 brief=brief,
+                usage=usage,  # type: ignore
                 enabled=enabled,
                 hidden=hidden,
                 ignore_extra=ignore_extra,
@@ -602,6 +623,7 @@ def message_command(
     aliases: list[str] = None,
     help: str = None,
     brief: str = None,
+    usage: str = None,
     enabled: bool = True,
     hidden: bool = False,
     ignore_extra: bool = True,
@@ -623,6 +645,10 @@ def message_command(
 
         brief (`str`, optional): The short help text for the command.
         Defaults to the first line of the help text, if there is one.
+
+        usage(`str`, optional): A string displaying how the command
+        can be used. If no string is set, it will default to the
+        command's signature. Useful for help commands.
 
         enabled (`bool`, optional): Whether this command can be run
         at all. Defaults to True.
@@ -652,6 +678,7 @@ def message_command(
             aliases=aliases or [],
             help=help,
             brief=brief,
+            usage=usage,  # type: ignore
             enabled=enabled,
             hidden=hidden,
             ignore_extra=ignore_extra,
