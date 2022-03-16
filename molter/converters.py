@@ -18,7 +18,7 @@ from dis_snek.models.discord.channel import (
     ThreadChannel,
     TYPE_MESSAGEABLE_CHANNEL,
 )
-from dis_snek.models.snek.context import MessageContext
+from dis_snek.models.snek.context import Context
 
 from molter.errors import BadArgument
 
@@ -51,7 +51,7 @@ T_co = TypeVar("T_co", covariant=True)
 
 @typing.runtime_checkable
 class Converter(Protocol[T_co]):
-    async def convert(self, ctx: MessageContext, argument: str) -> T_co:
+    async def convert(self, ctx: Context, argument: Any) -> T_co:
         raise NotImplementedError("Derived classes need to implement this.")
 
 
@@ -61,7 +61,7 @@ class LiteralConverter(Converter):
     def __init__(self, args: Any) -> None:
         self.values = {arg: type(arg) for arg in args}
 
-    async def convert(self, ctx: MessageContext, argument: str) -> Any:
+    async def convert(self, ctx: Context, argument: str) -> Any:
         for arg, converter in self.values.items():
             try:
                 if arg == converter(argument):
@@ -84,7 +84,7 @@ class IDConverter(Converter[T_co]):
 
 
 class SnowflakeConverter(IDConverter[SnowflakeObject]):
-    async def convert(self, ctx: MessageContext, argument: str) -> SnowflakeObject:
+    async def convert(self, ctx: Context, argument: str) -> SnowflakeObject:
         match = self._get_id_match(argument) or re.match(r"<(?:@(?:!|&)?|#)([0-9]{15,})>$", argument)
 
         if match is None:
@@ -104,7 +104,7 @@ class MemberConverter(IDConverter[Member]):
 
         return result
 
-    async def convert(self, ctx: MessageContext, argument: str) -> Member:
+    async def convert(self, ctx: Context, argument: str) -> Member:
         if not ctx.guild:
             raise BadArgument("This command cannot be used in private messages.")
 
@@ -130,7 +130,7 @@ class MemberConverter(IDConverter[Member]):
 
 
 class UserConverter(IDConverter[User]):
-    async def convert(self, ctx: MessageContext, argument: str) -> User:
+    async def convert(self, ctx: Context, argument: str) -> User:
         match = self._get_id_match(argument) or re.match(r"<@!?([0-9]{15,})>$", argument)
         result = None
 
@@ -153,7 +153,7 @@ class ChannelConverter(IDConverter[T_co]):
     def _check(self, result: BaseChannel) -> bool:
         return True
 
-    async def convert(self, ctx: MessageContext, argument: str) -> T_co:
+    async def convert(self, ctx: Context, argument: str) -> T_co:
         match = self._get_id_match(argument) or re.match(r"<#([0-9]{15,})>$", argument)
         result = None
 
@@ -204,7 +204,7 @@ class ThreadChannelConverter(ChannelConverter[ThreadChannel]):
 
 
 class RoleConverter(IDConverter[Role]):
-    async def convert(self, ctx: MessageContext, argument: str) -> Role:
+    async def convert(self, ctx: Context, argument: str) -> Role:
         if not ctx.guild:
             raise BadArgument("This command cannot be used in private messages.")
 
@@ -223,7 +223,7 @@ class RoleConverter(IDConverter[Role]):
 
 
 class GuildConverter(IDConverter[Guild]):
-    async def convert(self, ctx: MessageContext, argument: str) -> Guild:
+    async def convert(self, ctx: Context, argument: str) -> Guild:
         match = self._get_id_match(argument)
         result = None
 
@@ -239,7 +239,7 @@ class GuildConverter(IDConverter[Guild]):
 
 
 class PartialEmojiConverter(IDConverter[PartialEmoji]):
-    async def convert(self, ctx: MessageContext, argument: str) -> PartialEmoji:
+    async def convert(self, ctx: Context, argument: str) -> PartialEmoji:
 
         if match := self._get_id_match(argument) or re.match(r"<a?:[a-zA-Z0-9\_]{1,32}:([0-9]{15,})>$", argument):
             emoji_animated = bool(match.group(1))
@@ -252,7 +252,7 @@ class PartialEmojiConverter(IDConverter[PartialEmoji]):
 
 
 class CustomEmojiConverter(IDConverter[CustomEmoji]):
-    async def convert(self, ctx: MessageContext, argument: str) -> CustomEmoji:
+    async def convert(self, ctx: Context, argument: str) -> CustomEmoji:
         if not ctx.guild:
             raise BadArgument("This command cannot be used in private messages.")
 
@@ -284,7 +284,7 @@ class MessageConverter(Converter[Message]):
         r"https?://[\S]*?discord(?:app)?\.com/channels/(?P<guild_id>[0-9]{15,}|@me)/(?P<channel_id>[0-9]{15,})/(?P<message_id>[0-9]{15,})\/?$"
     )
 
-    async def convert(self, ctx: MessageContext, argument: str) -> Message:
+    async def convert(self, ctx: Context, argument: str) -> Message:
         match = self._ID_REGEX.match(argument) or self._MESSAGE_LINK_REGEX.match(argument)
         if not match:
             raise BadArgument(f'Message "{argument}" not found.')
