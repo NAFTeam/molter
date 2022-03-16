@@ -12,10 +12,25 @@ from dis_snek.models.discord.snowflake import SnowflakeObject
 from dis_snek.models.discord.emoji import PartialEmoji, CustomEmoji
 from dis_snek.models.discord.channel import (
     BaseChannel,
+    DMChannel,
+    DM,
+    DMGroup,
     GuildChannel,
-    GuildVoice,
+    GuildCategory,
+    GuildStore,
+    GuildNews,
     GuildText,
     ThreadChannel,
+    GuildNewsThread,
+    GuildPublicThread,
+    GuildPrivateThread,
+    GuildVoice,
+    GuildStageVoice,
+    TYPE_ALL_CHANNEL,
+    TYPE_DM_CHANNEL,
+    TYPE_GUILD_CHANNEL,
+    TYPE_THREAD_CHANNEL,
+    TYPE_VOICE_CHANNEL,
     TYPE_MESSAGEABLE_CHANNEL,
 )
 from dis_snek.models.snek.context import Context
@@ -31,11 +46,20 @@ __all__ = (
     "UserConverter",
     "ChannelConverter",
     "BaseChannelConverter",
-    "TextChannelConverter",
+    "DMChannelConverter",
+    "DMConverter",
+    "DMGroupConverter",
     "GuildChannelConverter",
+    "GuildNewsConverter",
+    "GuildCategoryConverter",
     "GuildTextConverter",
-    "GuildVoiceConverter",
     "ThreadChannelConverter",
+    "GuildNewsThreadConverter",
+    "GuildPublicThreadConverter",
+    "GuildPrivateThreadConverter",
+    "GuildVoiceConverter",
+    "GuildStageVoiceConverter",
+    "MessageableChannelConverter",
     "RoleConverter",
     "GuildConverter",
     "PartialEmojiConverter",
@@ -161,6 +185,8 @@ class ChannelConverter(IDConverter[T_co]):
             result = await ctx.bot.fetch_channel(int(match.group(1)))
         elif ctx.guild:
             result = next((c for c in ctx.guild.channels if c.name == argument), None)
+        else:
+            result = next((c for c in ctx.bot.cache.channel_cache.values() if c.name == argument), None)
 
         if not result:
             raise BadArgument(f'Channel "{argument}" not found.')
@@ -175,12 +201,19 @@ class BaseChannelConverter(ChannelConverter[BaseChannel]):
     pass
 
 
-class TextChannelConverter(ChannelConverter[TYPE_MESSAGEABLE_CHANNEL]):
+class DMChannelConverter(ChannelConverter[DMChannel]):
     def _check(self, result: BaseChannel) -> bool:
-        return (isinstance(result.type, ChannelTypes) and not result.type.voice) or result.type not in {
-            2,
-            13,
-        }
+        return isinstance(result, DMChannel)
+
+
+class DMConverter(ChannelConverter[DM]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, DM)
+
+
+class DMGroupConverter(ChannelConverter[DMGroup]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, DMGroup)
 
 
 class GuildChannelConverter(ChannelConverter[GuildChannel]):
@@ -188,9 +221,44 @@ class GuildChannelConverter(ChannelConverter[GuildChannel]):
         return isinstance(result, GuildChannel)
 
 
+class GuildNewsConverter(ChannelConverter[GuildNews]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, GuildNews)
+
+
+class GuildStoreConverter(ChannelConverter[GuildStore]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, GuildStore)
+
+
+class GuildCategoryConverter(ChannelConverter[GuildCategory]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, GuildCategory)
+
+
 class GuildTextConverter(ChannelConverter[GuildText]):
     def _check(self, result: BaseChannel) -> bool:
         return isinstance(result, GuildText)
+
+
+class ThreadChannelConverter(ChannelConverter[ThreadChannel]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, ThreadChannel)
+
+
+class GuildNewsThreadConverter(ChannelConverter[GuildNewsThread]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, GuildNewsThread)
+
+
+class GuildPublicThreadConverter(ChannelConverter[GuildPublicThread]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, GuildPublicThread)
+
+
+class GuildPrivateThreadConverter(ChannelConverter[GuildPrivateThread]):
+    def _check(self, result: BaseChannel) -> bool:
+        return isinstance(result, GuildPrivateThread)
 
 
 class GuildVoiceConverter(ChannelConverter[GuildVoice]):
@@ -198,9 +266,17 @@ class GuildVoiceConverter(ChannelConverter[GuildVoice]):
         return isinstance(result, GuildVoice)
 
 
-class ThreadChannelConverter(ChannelConverter[ThreadChannel]):
+class GuildStageVoiceConverter(ChannelConverter[GuildStageVoice]):
     def _check(self, result: BaseChannel) -> bool:
-        return isinstance(result, ThreadChannel)
+        return isinstance(result, GuildStageVoice)
+
+
+class MessageableChannelConverter(ChannelConverter[TYPE_MESSAGEABLE_CHANNEL]):
+    def _check(self, result: BaseChannel) -> bool:
+        return (isinstance(result.type, ChannelTypes) and not result.type.voice) or result.type not in {
+            2,
+            13,
+        }
 
 
 class RoleConverter(IDConverter[Role]):
@@ -323,10 +399,26 @@ SNEK_OBJECT_TO_CONVERTER: dict[type, type[Converter]] = {
     Member: MemberConverter,
     User: UserConverter,
     BaseChannel: BaseChannelConverter,
+    DMChannel: DMChannelConverter,
+    DM: DMConverter,
+    DMGroup: DMGroupConverter,
     GuildChannel: GuildChannelConverter,
+    GuildNews: GuildNewsConverter,
+    GuildStore: GuildStoreConverter,
+    GuildCategory: GuildCategoryConverter,
     GuildText: GuildTextConverter,
-    GuildVoice: GuildVoiceConverter,
     ThreadChannel: ThreadChannelConverter,
+    GuildNewsThread: GuildNewsThreadConverter,
+    GuildPublicThread: GuildPublicThreadConverter,
+    GuildPrivateThread: GuildPrivateThreadConverter,
+    GuildVoice: GuildVoiceConverter,
+    GuildStageVoice: GuildStageVoiceConverter,
+    TYPE_ALL_CHANNEL: BaseChannelConverter,
+    TYPE_DM_CHANNEL: DMChannelConverter,
+    TYPE_GUILD_CHANNEL: GuildChannelConverter,
+    TYPE_THREAD_CHANNEL: ThreadChannelConverter,
+    TYPE_VOICE_CHANNEL: GuildVoiceConverter,
+    TYPE_MESSAGEABLE_CHANNEL: MessageableChannelConverter,
     Role: RoleConverter,
     Guild: GuildConverter,
     PartialEmoji: PartialEmojiConverter,
