@@ -321,8 +321,8 @@ class MolterCommand(MessageCommand):
         ),
         default=True,
     )
-    help: Optional[str] = field(metadata=docs("The long help text for the command."))
-    brief: Optional[str] = field(metadata=docs("The short help text for the command."))
+    help: Optional[str] = field(metadata=docs("The long help text for the command."), default=None)
+    brief: Optional[str] = field(metadata=docs("The short help text for the command."), default=None)
     parent: Optional["MolterCommand"] = field(metadata=docs("The parent command, if applicable."), default=None)
     command_dict: dict[str, "MolterCommand"] = field(
         metadata=docs("A dict of a subcommand's name and the subcommand for this command."), factory=dict
