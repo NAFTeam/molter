@@ -20,7 +20,8 @@ __all__ = ("MolterScale", "MolterSnake")
 
 
 class MolterScale(Scale):
-    """A custom subclass of `dis_snek.Scale` that properly unloads Molter commands if aliases are used.
+    """
+    A custom subclass of `dis_snek.Scale` that properly unloads Molter commands if aliases are used.
 
     Use this alongside `MolterSnake` for the best results.
     Be careful about overriding the `shed` functions, as doing so improperly will break aliases unloading.
