@@ -104,6 +104,17 @@ def _convert_to_bool(argument: str) -> bool:
         raise BadArgument(f"{argument} is not a recognised boolean option.")
 
 
+def _is_nested(func: Callable) -> bool:
+    # we need to ignore parameters like self and ctx, so this is the easiest way
+    # forgive me, but this is the only reliable way i can find out if the function
+    # is in a class
+    # as the name of this suggests, it really only checks if it's nested in
+    # a function, class, method, etc.
+    # this method isn't perfect at all, but it's the best way without hooking into
+    # dis-snek itself.
+    return "." in func.__qualname__
+
+
 def _get_from_anno_type(anno: Annotated, name: str) -> Any:
     """
     Handles dealing with Annotated annotations, getting their \
@@ -176,12 +187,11 @@ def _greedy_parse(greedy: Greedy, param: inspect.Parameter) -> Any:
     return arg
 
 
-def _get_params(func: Callable) -> list[CommandParameter]:
+def _get_params(func: Callable, has_self: bool) -> list[CommandParameter]:
     cmd_params: list[CommandParameter] = []
 
-    # we need to ignore parameters like self and ctx, so this is the easiest way
-    # forgive me, but this is the only reliable way i can find out if the function...
-    if "." in func.__qualname__:  # is part of a class
+    # ignoring self it is exists
+    if has_self:
         callback = functools.partial(func, None, None)
     else:
         callback = functools.partial(func, None)
@@ -297,7 +307,7 @@ async def _greedy_convert(
 
 @define()
 class MolterCommand(MessageCommand):
-    params: list[CommandParameter] = field(metadata=docs("The paramters of the command."))
+    params: list[CommandParameter] = field(metadata=docs("The paramters of the command."), factory=list)
     aliases: list[str] = field(
         metadata=docs(
             "The list of aliases the command can be invoked under. Requires one of the override classes to work."
@@ -328,10 +338,6 @@ class MolterCommand(MessageCommand):
         metadata=docs("A dict of a subcommand's name and the subcommand for this command."), factory=dict
     )
     _usage: Optional[str] = field(default=None)
-
-    @params.default  # type: ignore
-    def _fill_params(self) -> list[CommandParameter]:
-        return _get_params(self.callback)
 
     def __attrs_post_init__(self) -> None:
         super().__attrs_post_init__()  # we want checks to work
@@ -438,6 +444,20 @@ class MolterCommand(MessageCommand):
             results.append("".join(result_builder))
 
         return " ".join(results)
+
+    def parse_parameters(self, *, has_self: bool) -> None:
+        """
+        Parses the parameters that this command has into a form Molter can use.
+
+        These are automatically ran with the decorators, though this needs to be run manually if
+        you wish to create a `MolterCommand` object manually.
+        Command arguments will not be used otherwise.
+
+        Args:
+            has_self (`bool`): If this command has a `self` parameter or not. If so, Molter will
+            make sure to ignore it while parsing.
+        """
+        self.params = _get_params(self.callback, has_self)
 
     def add_command(self, cmd: "MolterCommand") -> None:
         """Adds a command as a subcommand to this command."""
@@ -568,6 +588,7 @@ class MolterCommand(MessageCommand):
                 ignore_extra=ignore_extra,
                 hierarchical_checking=hierarchical_checking,
             )
+            cmd.parse_parameters(has_self=_is_nested(func))
             self.add_command(cmd)
             return cmd
 
@@ -702,7 +723,7 @@ def message_command(
     """
 
     def wrapper(func: Callable) -> MolterCommand:
-        return MolterCommand(  # type: ignore
+        cmd = MolterCommand(  # type: ignore
             callback=func,
             name=name or func.__name__,
             aliases=aliases or [],
@@ -714,6 +735,8 @@ def message_command(
             ignore_extra=ignore_extra,
             hierarchical_checking=hierarchical_checking,
         )
+        cmd.parse_parameters(has_self=_is_nested(func))
+        return cmd
 
     return wrapper
 
