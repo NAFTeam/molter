@@ -384,10 +384,9 @@ class MolterCommand(MessageCommand):
         return " ".join(name_deq)
 
     @property
-    def all_commands(self) -> tuple["MolterCommand"]:
+    def all_commands(self) -> frozenset["MolterCommand"]:
         """Returns all unique subcommands underneath this command."""
-        names = {c.name for c in self.command_dict.values()}
-        return tuple(self.command_dict[n] for n in names)
+        return frozenset(self.command_dict.values())
 
     @property
     def signature(self) -> str:
