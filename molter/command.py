@@ -305,7 +305,7 @@ async def _greedy_convert(
     return greedy_args, broke_off
 
 
-@define()
+@define(hash=True)
 class MolterCommand(MessageCommand):
     params: list[CommandParameter] = field(metadata=docs("The paramters of the command."), factory=list)
     aliases: list[str] = field(
