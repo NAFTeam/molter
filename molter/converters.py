@@ -17,7 +17,6 @@ from dis_snek.models.discord.channel import (
     DMGroup,
     GuildChannel,
     GuildCategory,
-    GuildStore,
     GuildNews,
     GuildText,
     ThreadChannel,
@@ -168,11 +167,6 @@ class GuildChannelConverter(ChannelConverter[GuildChannel]):
 class GuildNewsConverter(ChannelConverter[GuildNews]):
     def _check(self, result: BaseChannel) -> bool:
         return isinstance(result, GuildNews)
-
-
-class GuildStoreConverter(ChannelConverter[GuildStore]):
-    def _check(self, result: BaseChannel) -> bool:
-        return isinstance(result, GuildStore)
 
 
 class GuildCategoryConverter(ChannelConverter[GuildCategory]):
@@ -402,7 +396,6 @@ SNEK_OBJECT_TO_CONVERTER: dict[type, type[Converter]] = {
     DMGroup: DMGroupConverter,
     GuildChannel: GuildChannelConverter,
     GuildNews: GuildNewsConverter,
-    GuildStore: GuildStoreConverter,
     GuildCategory: GuildCategoryConverter,
     GuildText: GuildTextConverter,
     ThreadChannel: ThreadChannelConverter,
