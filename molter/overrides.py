@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, Iterable
 
 from dis_snek.client.client import Snake
 from dis_snek.client.utils.input_utils import get_args
@@ -104,7 +104,7 @@ class MolterSnake(Snake):
             return None
 
         cmd = self.commands.get(names[0])
-        if not cmd or not getattr(cmd, "command_dict", None):
+        if not cmd or not isinstance(cmd, MolterCommand):
             return cmd
 
         for name in names[1:]:
@@ -128,18 +128,18 @@ class MolterSnake(Snake):
             return
 
         if not message.author.bot:
-            prefixes = await self.generate_prefixes(self, message)
+            prefixes: str | Iterable[str] = await self.generate_prefixes(self, message)
 
             if isinstance(prefixes, str) or prefixes == MENTION_PREFIX:
                 # its easier to treat everything as if it may be an iterable
                 # rather than building a special case for this
-                prefixes = (prefixes,)
+                prefixes = (prefixes,)  # type: ignore
 
             prefix_used = None
 
             for prefix in prefixes:
                 if prefix == MENTION_PREFIX:
-                    if mention := self._mention_reg.search(message.content):
+                    if mention := self._mention_reg.search(message.content):  # type: ignore
                         prefix = mention.group()
                     else:
                         continue
@@ -158,11 +158,11 @@ class MolterSnake(Snake):
                 # we'll have to reconstruct it by getting the content_parameters
                 # then removing the prefix and the parameters from the message
                 # content
-                content_parameters = message.content.removeprefix(prefix_used)
+                content_parameters = message.content.removeprefix(prefix_used)  # type: ignore
                 command = self
 
                 while True:
-                    first_word: str = get_first_word(content_parameters)
+                    first_word: str = get_first_word(content_parameters)  # type: ignore
                     if isinstance(command, MolterCommand):
                         new_command = command.command_dict.get(first_word)
                     else:
@@ -186,7 +186,7 @@ class MolterSnake(Snake):
                     # yeah, this looks ugly
                     context.command = command
                     context.invoked_name = (
-                        message.content.removeprefix(prefix_used).removesuffix(content_parameters).strip()
+                        message.content.removeprefix(prefix_used).removesuffix(content_parameters).strip()  # type: ignore
                     )
                     context.args = get_args(context.content_parameters)
                     try:

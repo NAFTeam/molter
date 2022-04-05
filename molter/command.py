@@ -521,12 +521,12 @@ class MolterCommand(MessageCommand):
 
     def subcommand(
         self,
-        name: str = None,
+        name: Optional[str] = None,
         *,
-        aliases: list[str] = None,
-        help: str = None,
-        brief: str = None,
-        usage: str = None,
+        aliases: Optional[list[str]] = None,
+        help: Optional[str] = None,
+        brief: Optional[str] = None,
+        usage: Optional[str] = None,
         enabled: bool = True,
         hidden: bool = False,
         ignore_extra: bool = True,
@@ -668,12 +668,12 @@ class MolterCommand(MessageCommand):
 
 
 def message_command(
-    name: str = None,
+    name: Optional[str] = None,
     *,
-    aliases: list[str] = None,
-    help: str = None,
-    brief: str = None,
-    usage: str = None,
+    aliases: Optional[list[str]] = None,
+    help: Optional[str] = None,
+    brief: Optional[str] = None,
+    usage: Optional[str] = None,
     enabled: bool = True,
     hidden: bool = False,
     ignore_extra: bool = True,

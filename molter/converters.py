@@ -368,7 +368,7 @@ class CustomEmojiConverter(IDConverter[CustomEmoji]):
             result = await ctx.guild.fetch_custom_emoji(int(match.group(1)))
         else:
             if ctx.bot.cache.enable_emoji_cache:
-                emojis = ctx.bot.cache.emoji_cache.values()
+                emojis = ctx.bot.cache.emoji_cache.values()  # type: ignore
                 result = next((e for e in emojis if e.name == argument))
 
             if not result:
