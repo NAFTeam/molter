@@ -184,6 +184,7 @@ class MolterSnake(Snake):
 
                 if command and command.enabled:
                     # yeah, this looks ugly
+                    context.command = command
                     context.invoked_name = (
                         message.content.removeprefix(prefix_used).removesuffix(content_parameters).strip()
                     )
