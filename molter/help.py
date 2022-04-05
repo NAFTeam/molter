@@ -7,6 +7,8 @@ from dis_snek.ext.paginators import Paginator
 
 import molter
 
+__all__ = ("HelpCommand",)
+
 log = logging.getLogger(dis_snek.const.logger_name)
 
 
@@ -45,7 +47,7 @@ class HelpCommand:
         show_prefix: bool = False,
         embed_title: str | None = None,
         not_found_message: str | None = None,
-    ):
+    ) -> None:
         self._client = client
         self.show_hidden = show_hidden
         self.run_checks = run_checks
