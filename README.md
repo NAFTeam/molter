@@ -1,4 +1,4 @@
-## NOTE: this branch is a branch that attempts to bring the codebase to a more mergable state with `dis-snek`. New features may be introduced, but this branch is overall not meant to be used.
+## NOTE: this branch is a development branch that closely follows `dis-snek`'s `dev` branch. Use this if you're experimenting with it and/or just want to try new features.
 
 [![PyPI](https://img.shields.io/pypi/v/molter)](https://pypi.org/project/molter/)
 [![Downloads](https://static.pepy.tech/personalized-badge/molter?period=total&units=abbreviation&left_color=grey&right_color=green&left_text=pip%20installs)](https://pepy.tech/project/molter)
