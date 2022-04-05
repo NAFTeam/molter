@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from dis_snek.client import Snake
+from dis_snek.client.client import Snake
 from dis_snek.client.utils.input_utils import get_args
 from dis_snek.client.utils.input_utils import get_first_word
 from dis_snek.client.const import logger_name, MENTION_PREFIX
