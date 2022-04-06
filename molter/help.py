@@ -74,7 +74,7 @@ class HelpCommand:
         await self._callback.callback(ctx, cmd_name)  # type: ignore
 
     @molter.msg_command(name="help")
-    async def _callback(self, ctx: MessageContext, cmd_name: str = None) -> None:
+    async def _callback(self, ctx: MessageContext, *, cmd_name: str = None) -> None:
         if cmd_name:
             return await self._help_specific(ctx, cmd_name)
         await self._help_list(ctx)
