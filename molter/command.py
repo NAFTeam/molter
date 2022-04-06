@@ -604,8 +604,7 @@ class MolterCommand(MessageCommand):
             subcommand's checks are checked. Defaults to True.
 
             type_to_converter (`dict[type, type[Converter]]`, optional): A dict
-            that specifies how to convert an type/annotation in a Molter commnad
-            from a message argument via converters. This allows you to use
+            that associates converters for types. This allows you to use
             native type annotations without needing to use `typing.Annotated`.
             If this is not set, only dis-snek classes will be converted using
             built-in converters.
@@ -760,8 +759,7 @@ def message_command(
         subcommand's checks are checked. Defaults to True.
 
         type_to_converter (`dict[type, type[Converter]]`, optional): A dict
-        that specifies how to convert an type/annotation in a Molter commnad
-        from a message argument via converters. This allows you to use
+        that associates converters for types. This allows you to use
         native type annotations without needing to use `typing.Annotated`.
         If this is not set, only dis-snek classes will be converted using
         built-in converters.
@@ -797,6 +795,19 @@ MCT = TypeVar("MCT", Callable, MolterCommand)
 
 
 def register_converter(anno_type: type, converter: type[Converter]) -> Callable[..., MCT]:
+    """
+    A decorator that allows you to register converters for a type for a specific command.
+
+    This allows for native type annotations without needing to use `typing.Annotated`.
+
+    Args:
+        anno_type (`type`): The type to register for.
+        converter (`type[Converter]`): The converter to use for the type.
+
+    Returns:
+        `Callable[..., Callable | MolterCommand]`: Either the callback or the command.
+    """
+
     def wrapper(command: MCT) -> MCT:
         if hasattr(command, "_type_to_converter"):
             command._type_to_converter[anno_type] = converter
