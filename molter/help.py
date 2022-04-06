@@ -46,9 +46,9 @@ class HelpCommand:
     _client: "Snake" = attrs.field()
     _cmd: molter.MolterCommand | None = attrs.field(init=False, default=None)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         if not self._cmd:
-            self._cmd = self._callback
+            self._cmd = self._callback  # type: ignore
 
     def register(self) -> None:
         """Register the help command in dis-snek"""
