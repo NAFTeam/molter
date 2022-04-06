@@ -159,13 +159,13 @@ def _get_converter_function(anno: type[Converter], name: str) -> Callable[[Messa
     return anno_class.convert
 
 
-def _get_converter(anno: type, name: str, anno_to_converter: dict[type, type[Converter]]) -> Callable[[MessageContext, str], Any]:  # type: ignore
+def _get_converter(anno: type, name: str, type_to_converter: dict[type, type[Converter]]) -> Callable[[MessageContext, str], Any]:  # type: ignore
     if typing.get_origin(anno) == Annotated:
         anno = _get_from_anno_type(anno, name)
 
     if inspect.isclass(anno) and issubclass(anno, Converter):
         return _get_converter_function(type(anno), name)
-    elif converter := anno_to_converter.get(anno, None):
+    elif converter := type_to_converter.get(anno, None):
         return _get_converter_function(converter, name)
     elif typing.get_origin(anno) is Literal:
         literals = typing.get_args(anno)
@@ -208,7 +208,7 @@ def _greedy_parse(greedy: Greedy, param: inspect.Parameter) -> Any:
 
 
 def _get_params(
-    func: Callable, has_self: bool, anno_to_converter: dict[type, type[Converter]]
+    func: Callable, has_self: bool, type_to_converter: dict[type, type[Converter]]
 ) -> list[CommandParameter]:
     cmd_params: list[CommandParameter] = []
 
@@ -234,12 +234,12 @@ def _get_params(
             cmd_param.union = True
             for arg in typing.get_args(anno):
                 if arg != NoneType:
-                    converter = _get_converter(arg, name, anno_to_converter)
+                    converter = _get_converter(arg, name, type_to_converter)
                     cmd_param.converters.append(converter)
                 elif not cmd_param.optional:  # d.py-like behavior
                     cmd_param.default = None
         else:
-            converter = _get_converter(anno, name, anno_to_converter)
+            converter = _get_converter(anno, name, type_to_converter)
             cmd_param.converters.append(converter)
 
         match param.kind:
@@ -360,7 +360,7 @@ class MolterCommand(MessageCommand):
         metadata=docs("A dict of a subcommand's name and the subcommand for this command."), factory=dict
     )
     _usage: Optional[str] = field(default=None)
-    _anno_to_converter: dict[type, type[Converter]] = field(
+    _type_to_converter: dict[type, type[Converter]] = field(
         default=SNEK_OBJECT_TO_CONVERTER, converter=_merge_converters
     )
 
@@ -481,7 +481,7 @@ class MolterCommand(MessageCommand):
             has_self (`bool`): If this command has a `self` parameter or not. If so, Molter will
             make sure to ignore it while parsing.
         """
-        self.params = _get_params(self.callback, has_self, self._anno_to_converter)
+        self.params = _get_params(self.callback, has_self, self._type_to_converter)
 
     def add_command(self, cmd: "MolterCommand") -> None:
         """Adds a command as a subcommand to this command."""
@@ -556,7 +556,7 @@ class MolterCommand(MessageCommand):
         hidden: bool = False,
         ignore_extra: bool = True,
         hierarchical_checking: bool = True,
-        anno_to_converter: Optional[dict[type, type[Converter]]] = None,
+        type_to_converter: Optional[dict[type, type[Converter]]] = None,
     ) -> (Callable[..., "MolterCommand"]):
         """
         A decorator to declare a subcommand for a Molter message command.
@@ -596,8 +596,8 @@ class MolterCommand(MessageCommand):
             this command's checks before its own. Otherwise, only the
             subcommand's checks are checked. Defaults to True.
 
-            anno_to_converter (`dict[type, type[Converter]]`, optional): A dict
-            that specifies how to convert an annotation in a Molter commnad
+            type_to_converter (`dict[type, type[Converter]]`, optional): A dict
+            that specifies how to convert an type/annotation in a Molter commnad
             from a message argument via converters. This allows you to use
             native type annotations without needing to use `typing.Annotated`.
             If this is not set, only dis-snek classes will be converted using
@@ -619,7 +619,7 @@ class MolterCommand(MessageCommand):
                 hidden=hidden,
                 ignore_extra=ignore_extra,
                 hierarchical_checking=hierarchical_checking,
-                anno_to_converter=anno_to_converter or getattr(func, "_anno_to_converter", {}),  # type: ignore
+                type_to_converter=type_to_converter or getattr(func, "_type_to_converter", {}),  # type: ignore
             )
             cmd.parse_parameters(has_self=_is_nested(func))
             self.add_command(cmd)
@@ -712,7 +712,7 @@ def message_command(
     hidden: bool = False,
     ignore_extra: bool = True,
     hierarchical_checking: bool = True,
-    anno_to_converter: Optional[dict[type, type[Converter]]] = None,
+    type_to_converter: Optional[dict[type, type[Converter]]] = None,
 ) -> Callable[..., MolterCommand]:
     """
     A decorator to declare a coroutine as a Molter message command.
@@ -752,8 +752,8 @@ def message_command(
         this command's checks before its own. Otherwise, only the
         subcommand's checks are checked. Defaults to True.
 
-        anno_to_converter (`dict[type, type[Converter]]`, optional): A dict
-        that specifies how to convert an annotation in a Molter commnad
+        type_to_converter (`dict[type, type[Converter]]`, optional): A dict
+        that specifies how to convert an type/annotation in a Molter commnad
         from a message argument via converters. This allows you to use
         native type annotations without needing to use `typing.Annotated`.
         If this is not set, only dis-snek classes will be converted using
@@ -775,7 +775,7 @@ def message_command(
             hidden=hidden,
             ignore_extra=ignore_extra,
             hierarchical_checking=hierarchical_checking,
-            anno_to_converter=anno_to_converter or getattr(func, "_anno_to_converter", {}),  # type: ignore
+            type_to_converter=type_to_converter or getattr(func, "_type_to_converter", {}),  # type: ignore
         )
         cmd.parse_parameters(has_self=_is_nested(func))
         return cmd
@@ -789,12 +789,12 @@ msg_command = message_command
 MCT = TypeVar("MCT", Callable, MolterCommand)
 
 
-def register_converter(annotation_type: type, converter: type[Converter]) -> Callable[..., MCT]:
+def register_converter(anno_type: type, converter: type[Converter]) -> Callable[..., MCT]:
     def wrapper(command: MCT) -> MCT:
-        if hasattr(command, "_anno_to_converter"):
-            command._anno_to_converter[annotation_type] = converter
+        if hasattr(command, "_type_to_converter"):
+            command._type_to_converter[anno_type] = converter
         else:
-            command._anno_to_converter = {annotation_type: converter}
+            command._type_to_converter = {anno_type: converter}
 
         if isinstance(command, MolterCommand):
             command.parse_parameters(has_self=_is_nested(command.callback))
