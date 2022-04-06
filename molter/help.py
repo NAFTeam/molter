@@ -1,7 +1,8 @@
 import functools
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Coroutine
 
+import attrs
 from dis_snek import Embed
 from dis_snek.client.const import logger_name
 from dis_snek.ext.paginators import Paginator
@@ -18,67 +19,49 @@ __all__ = ("HelpCommand",)
 log = logging.getLogger(logger_name)
 
 
+@attrs.define(slots=True)
 class HelpCommand:
-    show_hidden: bool
-    """Should hidden commands be shown?"""
-    show_disabled: bool
-    """Should disabled commands be shown?"""
-    run_checks: bool
-    """Should commands be checked if they can be run by the help command user?"""
-    show_self: bool
-    """Should this command be shown in the help message?"""
-    show_params: bool
-    """Should parameters for commands be shown?"""
-    show_aliases: bool
-    """Should aliases for commands be shown?"""
-    show_prefix: bool
-    """Should the prefix be shown?"""
+    show_hidden: bool = attrs.field(default=False, kw_only=True)
+    """Should hidden commands be shown"""
+    show_disabled: bool = attrs.field(default=False, kw_only=True)
+    """Should disabled commands be shown"""
+    run_checks: bool = attrs.field(default=False, kw_only=True)
+    """Should only commands that's checks pass be shown"""
+    show_self: bool = attrs.field(default=False, kw_only=True)
+    """Should this command be shown in the help message"""
+    show_usage: bool = attrs.field(default=False, kw_only=True)
+    """Should usage for commands be shown"""
+    show_aliases: bool = attrs.field(default=False, kw_only=True)
+    """Should aliases for commands be shown"""
+    show_prefix: bool = attrs.field(default=False, kw_only=True)
+    """Should the prefix be shown"""
 
-    embed_title: str
-    """The title to use in the embed. {username} will be replaced by the client's username."""
-    not_found_message: str
-    """The message to send when a command is not found. {cmd_name} will be replaced by the requested command."""
+    embed_title: str = attrs.field(default="{username} Help Command", kw_only=True)
+    """The title to use in the embed. {username} will be replaced by the client's username"""
+    not_found_message: str = attrs.field(
+        default="Sorry! No command called `{cmd_name}` was found.", kw_only=True
+    )
+    """The message to send when a command was not found. {cmd_name} will be replaced by the requested command."""
 
-    _client: "Snake"
+    _client: "Snake" = attrs.field()
+    _cmd: molter.MolterCommand | None = attrs.field(init=False, default=None)
 
-    def __init__(
-        self,
-        client: "Snake",
-        *,
-        show_hidden: bool = False,
-        run_checks: bool = False,
-        show_self: bool = False,
-        show_usage: bool = False,
-        show_aliases: bool = False,
-        show_prefix: bool = False,
-        embed_title: str | None = None,
-        not_found_message: str | None = None,
-    ) -> None:
-        self._client = client
-        self.show_hidden = show_hidden
-        self.run_checks = run_checks
-        self.show_self = show_self
-        self.show_usage = show_usage
-        self.show_aliases = show_aliases
-        self.show_prefix = show_prefix
-        self.embed_title = embed_title or "{username} Help Command"
-        self.not_found_message = (
-            not_found_message or "Sorry! No command called `{cmd_name}` was found."
-        )
-        self.cmd = self._callback
+    def __attrs_post_init__(self):
+        if not self._cmd:
+            self._cmd = self._callback
 
     def register(self) -> None:
-        """Register the help command in dis-snek."""
-        if not isinstance(self.cmd.callback, functools.partial):
+        """Register the help command in dis-snek"""
+        if not isinstance(self._cmd.callback, functools.partial):
             # prevent wrap-nesting
-            self.cmd.callback = functools.partial(self.cmd.callback, self)
+            self._cmd.callback = functools.partial(self._cmd.callback, self)
 
         # replace existing help command if found
         if "help" in self._client.commands:
             log.warning("Replacing existing help command.")
             del self._client.commands["help"]
 
-        self._client.add_message_command(self.cmd)  # type: ignore
+        self._client.add_message_command(self._cmd)  # type: ignore
 
     async def send_help(self, ctx: MessageContext, cmd_name: str | None) -> None:
         """
@@ -149,7 +132,7 @@ class HelpCommand:
             if not cmd.enabled and not self.show_disabled:
                 continue
 
-            if cmd == self.cmd and not self.show_self:
+            if cmd == self._cmd and not self.show_self:
                 continue
 
             elif cmd.hidden and not self.show_hidden:
