@@ -77,7 +77,7 @@ class HelpCommand:
         Send a help message to the given context.
 
         args:
-            ctx: The context to use
+            ctx: The context to use.
             cmd_name: An optional command name to send help for.
         """
         await self._callback.callback(ctx, cmd_name)  # type: ignore
