@@ -805,7 +805,9 @@ def register_converter(anno_type: type, converter: type[Converter]) -> Callable[
         converter (`type[Converter]`): The converter to use for the type.
 
     Returns:
-        `Callable[..., Callable | MolterCommand]`: Either the callback or the command.
+        `Callable | MolterCommand`: Either the callback or the command.
+        If this is used after using the `molter.message_command` decorator, it will be a command.
+        Otherwise, it will be a callback.
     """
 
     def wrapper(command: MCT) -> MCT:
