@@ -1,12 +1,12 @@
 import functools
 import logging
-from typing import TYPE_CHECKING, Coroutine
+from typing import TYPE_CHECKING
 
 import attrs
 from dis_snek import Embed
 from dis_snek.client.const import logger_name
 from dis_snek.ext.paginators import Paginator
-from dis_snek.models.discord.color import BrandColors
+from dis_snek.models.discord.color import BrandColors, Color
 from dis_snek.models.snek.context import MessageContext
 
 import molter
@@ -35,6 +35,8 @@ class HelpCommand:
     """Should aliases for commands be shown"""
     show_prefix: bool = attrs.field(default=False, kw_only=True)
     """Should the prefix be shown"""
+    embed_color: Color = attrs.field(default=BrandColors.BLURPLE, kw_only=True)
+    """The colour to show in the Embeds"""
 
     embed_title: str = attrs.field(default="{username} Help Command", kw_only=True)
     """The title to use in the embed. {username} will be replaced by the client's username"""
@@ -90,6 +92,7 @@ class HelpCommand:
             output.append(self._sanitise_mentions(_temp))
         if len("\n".join(output)) > 500:
             paginator = Paginator.create_from_list(self._client, output, page_size=500)
+            paginator.default_color = self.embed_color
             paginator.default_title = self.embed_title.format(
                 username=self._client.user.username
             )
@@ -98,7 +101,7 @@ class HelpCommand:
             embed = Embed(
                 title=self.embed_title.format(username=self._client.user.username),
                 description="\n".join(output),
-                color=BrandColors.BLURPLE,
+                color=self.embed_color,
             )
             await ctx.reply(embeds=embed)
 
