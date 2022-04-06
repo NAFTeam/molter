@@ -65,7 +65,7 @@ class HelpCommand:
 
         self._client.add_message_command(self._cmd)  # type: ignore
 
-    async def send_help(self, ctx: MessageContext, cmd_name: str | None) -> None:
+    async def send_help(self, ctx: MessageContext, *, cmd_name: str | None) -> None:
         """
         Send a help message to the given context.
 
