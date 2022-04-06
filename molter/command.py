@@ -24,7 +24,7 @@ __all__ = (
     "MolterCommand",
     "message_command",
     "msg_command",
-    "convert",
+    "register_converter",
 )
 
 # turns out dis-snek's args thinks newlines are the start of new arguments
@@ -789,7 +789,7 @@ msg_command = message_command
 MCT = TypeVar("MCT", Callable, MolterCommand)
 
 
-def convert(annotation_type: type, converter: type[Converter]) -> Callable[..., MCT]:
+def register_converter(annotation_type: type, converter: type[Converter]) -> Callable[..., MCT]:
     def wrapper(command: MCT) -> MCT:
         if hasattr(command, "_anno_to_converter"):
             command._anno_to_converter[annotation_type] = converter
