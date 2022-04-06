@@ -14,24 +14,24 @@ log = logging.getLogger(dis_snek.const.logger_name)
 
 class HelpCommand:
     show_hidden: bool
-    """Should hidden commands be shown"""
+    """Should hidden commands be shown?"""
     show_disabled: bool
-    """Should disabled commands be shown"""
+    """Should disabled commands be shown?"""
     run_checks: bool
-    """Should only commands that's checks pass be shown"""
+    """Should commands be checked if they can be run by the help command user?"""
     show_self: bool
-    """Should this command be shown in the help message"""
+    """Should this command be shown in the help message?"""
     show_params: bool
-    """Should parameters for commands be shown"""
+    """Should parameters for commands be shown?"""
     show_aliases: bool
-    """Should aliases for commands be shown"""
+    """Should aliases for commands be shown?"""
     show_prefix: bool
-    """Should the prefix be shown"""
+    """Should the prefix be shown?"""
 
     embed_title: str
-    """The title to use in the embed. {username} will be replaced by the client's username"""
+    """The title to use in the embed. {username} will be replaced by the client's username."""
     not_found_message: str
-    """The message to send when a command was not found. {cmd_name} will be replaced by the requested command."""
+    """The message to send when a command is not found. {cmd_name} will be replaced by the requested command."""
 
     _client: dis_snek.Snake
 
@@ -60,7 +60,7 @@ class HelpCommand:
         self.cmd = self._callback
 
     def register(self) -> None:
-        """Register the help command in dis-snek"""
+        """Register the help command in dis-snek."""
         if not isinstance(self.cmd.callback, functools.partial):
             # prevent wrap-nesting
             self.cmd.callback = functools.partial(self.cmd.callback, self)
@@ -78,7 +78,7 @@ class HelpCommand:
 
         args:
             ctx: The context to use
-            cmd_name: An optional command name to send help for
+            cmd_name: An optional command name to send help for.
         """
         await self._callback.callback(ctx, cmd_name)  # type: ignore
 
@@ -121,13 +121,13 @@ class HelpCommand:
 
     async def _gather(self, ctx: dis_snek.MessageContext | None = None) -> dict[str, molter.MolterCommand]:
         """
-        Gather commands based on the rules set out in the class attribs
+        Gather commands based on the rules set out in the class attributes.
 
         args:
-            ctx: The context to use to establish usability
+            ctx: The context to use to establish usability.
 
         returns:
-            dict[str, MolterCommand]: A list of commands fit the class attrib configuration
+            dict[str, MolterCommand]: A list of commands fit the class attribute configuration.
         """
         out: dict[str, molter.MolterCommand] = {}
 
@@ -163,7 +163,7 @@ class HelpCommand:
         Replace mentions with a format that won't ping or look weird in code blocks.
 
         args:
-            The text to sanitise
+            The text to sanitise.
         """
         mappings = {
             "@everyone": "@\u200beveryone",
@@ -181,8 +181,8 @@ class HelpCommand:
         Generate a string based on a command, class attributes, and the context.
 
         args:
-            cmd: The command in question
-            ctx:
+            cmd: The command in question.
+            ctx: The context for this command.
         """
         _temp = f"`{ctx.prefix if self.show_prefix else ''}{cmd.qualified_name}`"
 
