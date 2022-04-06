@@ -4,7 +4,7 @@ import re
 import typing  # it's weird importing get_args and get_origin directly
 from collections import deque
 from types import NoneType, UnionType
-from typing import Optional, Any, Callable, Sequence, Annotated, Literal, Union
+from typing import Optional, Any, Callable, Sequence, Annotated, Literal, Union, TypeVar
 
 import attrs
 
@@ -17,7 +17,15 @@ from dis_snek.models.snek.context import MessageContext
 from molter.errors import BadArgument
 from molter.converters import Converter, LiteralConverter, Greedy, SNEK_OBJECT_TO_CONVERTER
 
-__all__ = ("CommandParameter", "ArgsIterator", "maybe_coroutine", "MolterCommand", "message_command", "msg_command")
+__all__ = (
+    "CommandParameter",
+    "ArgsIterator",
+    "maybe_coroutine",
+    "MolterCommand",
+    "message_command",
+    "msg_command",
+    "convert",
+)
 
 # turns out dis-snek's args thinks newlines are the start of new arguments
 # they aren't, polls.
@@ -141,16 +149,24 @@ def _get_from_anno_type(anno: Annotated, name: str) -> Any:
     return args[0]
 
 
+def _get_converter_function(anno: type[Converter], name: str) -> Callable[[MessageContext, str], Any]:
+    anno_class = anno()  # this inits actual converters for use while doing nothing for static/classmethod converters
+
+    num_params = len(inspect.signature(anno_class.convert).parameters.values())
+    if num_params != 2:
+        ValueError(f"{_get_name(anno)} for {name} is invalid: converters must have exactly 2 arguments.")
+
+    return anno_class.convert
+
+
 def _get_converter(anno: type, name: str, anno_to_converter: dict[type, type[Converter]]) -> Callable[[MessageContext, str], Any]:  # type: ignore
     if typing.get_origin(anno) == Annotated:
         anno = _get_from_anno_type(anno, name)
 
-    if converter := anno_to_converter.get(anno, None):
-        return converter().convert
-    elif inspect.isclass(anno) and issubclass(anno, Converter):
-        return anno().convert  # type: ignore
-    elif hasattr(anno, "convert") and inspect.isfunction(anno.convert):  # type: ignore
-        return anno.convert  # type: ignore
+    if inspect.isclass(anno) and issubclass(anno, Converter):
+        return _get_converter_function(type(anno), name)
+    elif converter := anno_to_converter.get(anno, None):
+        return _get_converter_function(converter, name)
     elif typing.get_origin(anno) is Literal:
         literals = typing.get_args(anno)
         return LiteralConverter(literals).convert
@@ -603,7 +619,7 @@ class MolterCommand(MessageCommand):
                 hidden=hidden,
                 ignore_extra=ignore_extra,
                 hierarchical_checking=hierarchical_checking,
-                anno_to_converter=anno_to_converter or {},  # type: ignore
+                anno_to_converter=anno_to_converter or getattr(func, "_anno_to_converter", {}),  # type: ignore
             )
             cmd.parse_parameters(has_self=_is_nested(func))
             self.add_command(cmd)
@@ -759,7 +775,7 @@ def message_command(
             hidden=hidden,
             ignore_extra=ignore_extra,
             hierarchical_checking=hierarchical_checking,
-            anno_to_converter=anno_to_converter or {},  # type: ignore
+            anno_to_converter=anno_to_converter or getattr(func, "_anno_to_converter", {}),  # type: ignore
         )
         cmd.parse_parameters(has_self=_is_nested(func))
         return cmd
@@ -768,3 +784,21 @@ def message_command(
 
 
 msg_command = message_command
+
+# molter command typevar - can be the function or the command
+MCT = TypeVar("MCT", Callable, MolterCommand)
+
+
+def convert(annotation_type: type, converter: type[Converter]) -> Callable[..., MCT]:
+    def wrapper(command: MCT) -> MCT:
+        if hasattr(command, "_anno_to_converter"):
+            command._anno_to_converter[annotation_type] = converter
+        else:
+            command._anno_to_converter = {annotation_type: converter}
+
+        if isinstance(command, MolterCommand):
+            command.parse_parameters(has_self=_is_nested(command.callback))
+
+        return command
+
+    return wrapper
