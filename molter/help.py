@@ -48,7 +48,7 @@ class HelpCommand:
         show_hidden: bool = False,
         run_checks: bool = False,
         show_self: bool = False,
-        show_params: bool = False,
+        show_usage: bool = False,
         show_aliases: bool = False,
         show_prefix: bool = False,
         embed_title: str | None = None,
@@ -58,7 +58,7 @@ class HelpCommand:
         self.show_hidden = show_hidden
         self.run_checks = run_checks
         self.show_self = show_self
-        self.show_params = show_params
+        self.show_usage = show_usage
         self.show_aliases = show_aliases
         self.show_prefix = show_prefix
         self.embed_title = embed_title or "{username} Help Command"
@@ -203,9 +203,6 @@ class HelpCommand:
         if cmd.aliases and self.show_aliases:
             _temp += "|" + "|".join([f"`{a}`" for a in cmd.aliases])
 
-        if cmd.params and self.show_params:
-            for param in cmd.params:
-                wrapper = ("[", "]") if param.optional else ("<", ">")
-                _temp += f" `{wrapper[0]}{param.name}{wrapper[1]}`"
-
+        if cmd.usage and self.show_usage:
+            _temp += f" {cmd.usage}"
         return _temp
