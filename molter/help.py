@@ -1,15 +1,21 @@
 import functools
 import logging
+from typing import TYPE_CHECKING
 
-import dis_snek
 from dis_snek import Embed
+from dis_snek.client.const import logger_name
 from dis_snek.ext.paginators import Paginator
+from dis_snek.models.discord.color import BrandColors
+from dis_snek.models.snek.context import MessageContext
 
 import molter
 
+if TYPE_CHECKING:
+    from dis_snek.client import Snake
+
 __all__ = ("HelpCommand",)
 
-log = logging.getLogger(dis_snek.const.logger_name)
+log = logging.getLogger(logger_name)
 
 
 class HelpCommand:
@@ -33,11 +39,11 @@ class HelpCommand:
     not_found_message: str
     """The message to send when a command is not found. {cmd_name} will be replaced by the requested command."""
 
-    _client: dis_snek.Snake
+    _client: "Snake"
 
     def __init__(
         self,
-        client: dis_snek.Snake,
+        client: "Snake",
         *,
         show_hidden: bool = False,
         run_checks: bool = False,
@@ -56,7 +62,9 @@ class HelpCommand:
         self.show_aliases = show_aliases
         self.show_prefix = show_prefix
         self.embed_title = embed_title or "{username} Help Command"
-        self.not_found_message = not_found_message or "Sorry! No command called `{cmd_name}` was found."
+        self.not_found_message = (
+            not_found_message or "Sorry! No command called `{cmd_name}` was found."
+        )
         self.cmd = self._callback
 
     def register(self) -> None:
@@ -72,7 +80,7 @@ class HelpCommand:
 
         self._client.add_message_command(self.cmd)  # type: ignore
 
-    async def send_help(self, ctx: dis_snek.MessageContext, cmd_name: str | None) -> None:
+    async def send_help(self, ctx: MessageContext, cmd_name: str | None) -> None:
         """
         Send a help message to the given context.
 
@@ -83,12 +91,12 @@ class HelpCommand:
         await self._callback.callback(ctx, cmd_name)  # type: ignore
 
     @molter.msg_command(name="help")
-    async def _callback(self, ctx: dis_snek.MessageContext, cmd_name: str = None) -> None:
+    async def _callback(self, ctx: MessageContext, cmd_name: str = None) -> None:
         if cmd_name:
             return await self._help_specific(ctx, cmd_name)
         await self._help_list(ctx)
 
-    async def _help_list(self, ctx: dis_snek.MessageContext) -> None:
+    async def _help_list(self, ctx: MessageContext) -> None:
         cmds = await self._gather(ctx)
 
         output = []
@@ -99,17 +107,19 @@ class HelpCommand:
             output.append(self._sanitise_mentions(_temp))
         if len("\n".join(output)) > 500:
             paginator = Paginator.create_from_list(self._client, output, page_size=500)
-            paginator.default_title = self.embed_title.format(username=self._client.user.username)
+            paginator.default_title = self.embed_title.format(
+                username=self._client.user.username
+            )
             await paginator.send(ctx)
         else:
             embed = Embed(
                 title=self.embed_title.format(username=self._client.user.username),
                 description="\n".join(output),
-                color=dis_snek.BrandColors.BLURPLE,
+                color=BrandColors.BLURPLE,
             )
             await ctx.reply(embeds=embed)
 
-    async def _help_specific(self, ctx: dis_snek.MessageContext, cmd_name: str) -> None:
+    async def _help_specific(self, ctx: MessageContext, cmd_name: str) -> None:
         cmds = await self._gather(ctx)
 
         if cmd := cmds.get(cmd_name.lower()):
@@ -119,7 +129,9 @@ class HelpCommand:
         else:
             await ctx.reply(self.not_found_message.format(cmd_name=cmd_name))
 
-    async def _gather(self, ctx: dis_snek.MessageContext | None = None) -> dict[str, molter.MolterCommand]:
+    async def _gather(
+        self, ctx: MessageContext | None = None
+    ) -> dict[str, molter.MolterCommand]:
         """
         Gather commands based on the rules set out in the class attributes.
 
@@ -176,7 +188,9 @@ class HelpCommand:
 
         return text
 
-    def _generate_command_string(self, cmd: molter.MolterCommand, ctx: dis_snek.MessageContext) -> str:
+    def _generate_command_string(
+        self, cmd: molter.MolterCommand, ctx: MessageContext
+    ) -> str:
         """
         Generate a string based on a command, class attributes, and the context.
 
