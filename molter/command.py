@@ -149,7 +149,7 @@ def _get_from_anno_type(anno: Annotated, name: str) -> Any:
     return args[0]
 
 
-def _get_converter_function(anno: type[Converter], name: str) -> Callable[[MessageContext, str], Any]:
+def _get_converter_function(anno: type[Converter] | Converter, name: str) -> Callable[[MessageContext, str], Any]:
     num_params = len(inspect.signature(anno.convert).parameters.values())
 
     # if we have three parameters for the function, it's likely it has a self parameter
@@ -170,8 +170,8 @@ def _get_converter(anno: type, name: str, type_to_converter: dict[type, type[Con
     if typing.get_origin(anno) == Annotated:
         anno = _get_from_anno_type(anno, name)
 
-    if inspect.isclass(anno) and issubclass(anno, Converter):
-        return _get_converter_function(type(anno), name)
+    if isinstance(anno, Converter):
+        return _get_converter_function(anno, name)
     elif converter := type_to_converter.get(anno, None):
         return _get_converter_function(converter, name)
     elif typing.get_origin(anno) is Literal:
