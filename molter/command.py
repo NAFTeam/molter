@@ -804,6 +804,11 @@ def register_converter(anno_type: type, converter: type[Converter]) -> Callable[
             command._type_to_converter = {anno_type: converter}
 
         if isinstance(command, MolterCommand):
+            # yes, this sucks, but we need to re-analyze params just to make sure all
+            # annotations get converted with the new converter injection
+            # when this is merged with dis-snek, parameters will be analyzed either
+            # when the client reads its own commands or when a scale is loaded,
+            # instead of on creation. that will remove the need for this
             command.parse_parameters(has_self=_is_nested(command.callback))
 
         return command
