@@ -40,9 +40,7 @@ class HelpCommand:
 
     embed_title: str = attrs.field(default="{username} Help Command", kw_only=True)
     """The title to use in the embed. {username} will be replaced by the client's username"""
-    not_found_message: str = attrs.field(
-        default="Sorry! No command called `{cmd_name}` was found.", kw_only=True
-    )
+    not_found_message: str = attrs.field(default="Sorry! No command called `{cmd_name}` was found.", kw_only=True)
     """The message to send when a command was not found. {cmd_name} will be replaced by the requested command."""
 
     _client: "Snake" = attrs.field()
@@ -93,9 +91,7 @@ class HelpCommand:
         if len("\n".join(output)) > 500:
             paginator = Paginator.create_from_list(self._client, output, page_size=500)
             paginator.default_color = self.embed_color
-            paginator.default_title = self.embed_title.format(
-                username=self._client.user.username
-            )
+            paginator.default_title = self.embed_title.format(username=self._client.user.username)
             await paginator.send(ctx)
         else:
             embed = Embed(
@@ -115,9 +111,7 @@ class HelpCommand:
         else:
             await ctx.reply(self.not_found_message.format(cmd_name=cmd_name))
 
-    async def _gather(
-        self, ctx: MessageContext | None = None
-    ) -> dict[str, molter.MolterCommand]:
+    async def _gather(self, ctx: MessageContext | None = None) -> dict[str, molter.MolterCommand]:
         """
         Gather commands based on the rules set out in the class attributes.
 
@@ -175,9 +169,7 @@ class HelpCommand:
 
         return text
 
-    def _generate_command_string(
-        self, cmd: molter.MolterCommand, ctx: MessageContext
-    ) -> str:
+    def _generate_command_string(self, cmd: molter.MolterCommand, ctx: MessageContext) -> str:
         """
         Generate a string based on a command, class attributes, and the context.
 
