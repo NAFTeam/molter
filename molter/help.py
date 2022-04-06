@@ -130,7 +130,8 @@ class HelpCommand:
         out: dict[str, molter.MolterCommand] = {}
 
         for cmd in self._client.commands.values():
-            cmd: molter.MolterCommand
+            if not isinstance(cmd, molter.MolterCommand):
+                continue
 
             if not cmd.enabled and not self.show_disabled:
                 continue
