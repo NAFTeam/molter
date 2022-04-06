@@ -139,7 +139,7 @@ class HelpCommand:
             if cmd == self._cmd and not self.show_self:
                 continue
 
-            elif cmd.hidden and not self.show_hidden:
+            if cmd.hidden and not self.show_hidden:
                 continue
 
             if ctx and cmd.checks and not self.run_checks:
