@@ -150,13 +150,20 @@ def _get_from_anno_type(anno: Annotated, name: str) -> Any:
 
 
 def _get_converter_function(anno: type[Converter], name: str) -> Callable[[MessageContext, str], Any]:
-    anno_class = anno()  # this inits actual converters for use while doing nothing for static/classmethod converters
+    num_params = len(inspect.signature(anno.convert).parameters.values())
 
-    num_params = len(inspect.signature(anno_class.convert).parameters.values())
+    # if we have three parameters for the function, it's likely it has a self parameter
+    # so we need to get rid of it by initing - typehinting hates this, btw!
+    # the below line will error out if we aren't supposed to init it, so that works out
+    actual_anno: Converter = anno() if num_params == 3 else anno  # type: ignore
+    # we can only get to this point while having three params if we successfully inited
+    if num_params == 3:
+        num_params -= 1
+
     if num_params != 2:
         ValueError(f"{_get_name(anno)} for {name} is invalid: converters must have exactly 2 arguments.")
 
-    return anno_class.convert
+    return actual_anno.convert
 
 
 def _get_converter(anno: type, name: str, type_to_converter: dict[type, type[Converter]]) -> Callable[[MessageContext, str], Any]:  # type: ignore
