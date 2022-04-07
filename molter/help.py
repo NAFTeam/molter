@@ -42,6 +42,14 @@ class HelpCommand:
     """The title to use in the embed. {username} will be replaced by the client's username"""
     not_found_message: str = attrs.field(default="Sorry! No command called `{cmd_name}` was found.", kw_only=True)
     """The message to send when a command was not found. {cmd_name} will be replaced by the requested command."""
+    fallback_help_string: str = attrs.field(
+        default="No help message available.", kw_only=True
+    )
+    """The text to display when a command does not have a help string defined."""
+    fallback_brief_string: str = attrs.field(
+        default="No help message available.", kw_only=True
+    )
+    """The text to display when a command does not have a brief string defined."""
 
     _client: "Snake" = attrs.field()
     _cmd: molter.MolterCommand | None = attrs.field(init=False, default=None)
@@ -85,7 +93,7 @@ class HelpCommand:
         output = []
         for cmd in cmds.values():
             _temp = self._generate_command_string(cmd, ctx)
-            _temp += f"\n{cmd.brief}"
+            _temp += f"\n{cmd.brief or self.fallback_brief_string}"
 
             output.append(self._sanitise_mentions(_temp))
         if len("\n".join(output)) > 500:
@@ -106,7 +114,7 @@ class HelpCommand:
 
         if cmd := cmds.get(cmd_name.lower()):
             _temp = self._generate_command_string(cmd, ctx)
-            _temp += f"\n{cmd.help}"
+            _temp += f"\n{cmd.help or self.fallback_help_string}"
             await ctx.reply(self._sanitise_mentions(_temp))
         else:
             await ctx.reply(self.not_found_message.format(cmd_name=cmd_name))
