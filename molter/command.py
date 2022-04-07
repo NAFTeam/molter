@@ -337,7 +337,7 @@ async def _greedy_convert(
 
 @define(hash=True)
 class MolterCommand(MessageCommand):
-    params: list[CommandParameter] = field(metadata=docs("The paramters of the command."), factory=list)
+    parameters: list[CommandParameter] = field(metadata=docs("The paramters of the command."), factory=list)
     aliases: list[str] = field(
         metadata=docs(
             "The list of aliases the command can be invoked under. Requires one of the override classes to work."
@@ -424,12 +424,12 @@ class MolterCommand(MessageCommand):
     @property
     def signature(self) -> str:
         """Returns a POSIX-like signature useful for help command output."""
-        if not self.params:
+        if not self.parameters:
             return ""
 
         results = []
 
-        for param in self.params:
+        for param in self.parameters:
             anno = param.type
             name = param.name
 
@@ -489,7 +489,7 @@ class MolterCommand(MessageCommand):
             has_self (`bool`): If this command has a `self` parameter or not. If so, Molter will
             make sure to ignore it while parsing.
         """
-        self.params = _get_params(self.callback, has_self, self._type_to_converter)
+        self.parameters = _get_params(self.callback, has_self, self._type_to_converter)
 
     def add_command(self, cmd: "MolterCommand") -> None:
         """Adds a command as a subcommand to this command."""
@@ -643,7 +643,7 @@ class MolterCommand(MessageCommand):
             ctx (`dis_snek.MessageContext`): The context to use for this command.
         """
         # sourcery skip: remove-empty-nested-block, remove-redundant-if, remove-unnecessary-else
-        if len(self.params) == 0:
+        if len(self.parameters) == 0:
             return await callback(ctx)
         else:
             # this is slightly costly, but probably worth it
@@ -655,8 +655,8 @@ class MolterCommand(MessageCommand):
             param_index = 0
 
             for arg in args:
-                while param_index < len(self.params):
-                    param = self.params[param_index]
+                while param_index < len(self.parameters):
+                    param = self.parameters[param_index]
 
                     if param.consume_rest:
                         arg = " ".join(args.consume_rest())
@@ -692,8 +692,8 @@ class MolterCommand(MessageCommand):
                     if not used_default:
                         break
 
-            if param_index < len(self.params):
-                for param in self.params[param_index:]:
+            if param_index < len(self.parameters):
+                for param in self.parameters[param_index:]:
                     if not param.optional:
                         raise BadArgument(f"{param.name} is a required argument that is missing.")
                     else:
@@ -820,7 +820,7 @@ def register_converter(anno_type: type, converter: type[Converter]) -> Callable[
         if isinstance(command, MolterCommand):
             # we want to update any instance where the anno_type was used
             # to use the provided converter without re-analyzing every param
-            for param in command.params:
+            for param in command.parameters:
                 param_type = param.type
                 if anno_type == param_type:
                     param.converters = [converter]
