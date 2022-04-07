@@ -335,7 +335,7 @@ async def _greedy_convert(
     return greedy_args, broke_off
 
 
-@define(hash=True)
+@define()
 class MolterCommand(MessageCommand):
     parameters: list[CommandParameter] = field(metadata=docs("The paramters of the command."), factory=list)
     aliases: list[str] = field(
@@ -388,6 +388,9 @@ class MolterCommand(MessageCommand):
 
         if self.brief is None:
             self.brief = self.help.splitlines()[0] if self.help is not None else None
+
+    def __hash__(self) -> int:
+        return id(self)
 
     @property
     def usage(self) -> str:
