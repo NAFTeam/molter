@@ -12,3 +12,4 @@ from .command import *
 from .converters import *
 from .errors import *
 from .overrides import *
+from .help import *
