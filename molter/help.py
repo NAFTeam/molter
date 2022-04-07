@@ -42,13 +42,9 @@ class HelpCommand:
     """The title to use in the embed. {username} will be replaced by the client's username"""
     not_found_message: str = attrs.field(default="Sorry! No command called `{cmd_name}` was found.", kw_only=True)
     """The message to send when a command was not found. {cmd_name} will be replaced by the requested command."""
-    fallback_help_string: str = attrs.field(
-        default="No help message available.", kw_only=True
-    )
+    fallback_help_string: str = attrs.field(default="No help message available.", kw_only=True)
     """The text to display when a command does not have a help string defined."""
-    fallback_brief_string: str = attrs.field(
-        default="No help message available.", kw_only=True
-    )
+    fallback_brief_string: str = attrs.field(default="No help message available.", kw_only=True)
     """The text to display when a command does not have a brief string defined."""
 
     _client: "Snake" = attrs.field()
