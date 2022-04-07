@@ -2,6 +2,7 @@ import functools
 import inspect
 import re
 import typing  # it's weird importing get_args and get_origin directly
+from contextlib import suppress
 from collections import deque
 from types import NoneType, UnionType
 from typing import Optional, Any, Callable, Sequence, Annotated, Literal, Union, TypeVar
@@ -817,12 +818,21 @@ def register_converter(anno_type: type, converter: type[Converter]) -> Callable[
             command._type_to_converter = {anno_type: converter}
 
         if isinstance(command, MolterCommand):
-            # yes, this sucks, but we need to re-analyze params just to make sure all
-            # annotations get converted with the new converter injection
-            # when this is merged with dis-snek, parameters will be analyzed either
-            # when the client reads its own commands or when a scale is loaded,
-            # instead of on creation. that will remove the need for this
-            command.parse_parameters(has_self=_is_nested(command.callback))
+            # we want to update any instance where the anno_type was used
+            # to use the provided converter without re-analyzing every param
+            for param in command.params:
+                param_type = param.type
+                if anno_type == param_type:
+                    param.converters = [converter]
+                else:
+                    if typing.get_origin(param_type) == Annotated:
+                        param_type = _get_from_anno_type(param_type, param.name)
+
+                    with suppress(ValueError):
+                        # if you have multiple of the same anno/type here, i don't know
+                        # what to tell you other than why
+                        index = typing.get_args(param.type).index(anno_type)
+                        param.converters[index] = converter
 
         return command
 
