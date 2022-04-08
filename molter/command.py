@@ -450,7 +450,7 @@ class MolterCommand(MessageCommand):
                 name = "|".join(f'"{v}"' if isinstance(v, str) else str(v) for v in typing.get_args(anno))
 
             # we need to do a lot of manipulations with the signature
-            # string, so using a list as a string builder makes sense for performance
+            # string, so using a deque as a string builder makes sense for performance
             result_builder: deque[str] = deque()
 
             if param.optional and param.default is not None:
