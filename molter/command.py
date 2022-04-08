@@ -26,6 +26,7 @@ __all__ = (
     "message_command",
     "msg_command",
     "register_converter",
+    "globally_register_converter",
 )
 
 # turns out dis-snek's args thinks newlines are the start of new arguments
@@ -36,6 +37,10 @@ _pending_regex = r"(1.*2|[^\t\f\v ]+)"
 _pending_regex = _pending_regex.replace("1", f"[{''.join(list(_quotes.keys()))}]")
 _pending_regex = _pending_regex.replace("2", f"[{''.join(list(_quotes.values()))}]")
 ARGS_PARSE = re.compile(_pending_regex)
+
+
+# thankfully, modules are singletons
+_global_type_to_converter = dict(SNEK_OBJECT_TO_CONVERTER)
 
 
 @attrs.define(slots=True)
@@ -125,7 +130,7 @@ def _is_nested(func: Callable) -> bool:
 
 
 def _merge_converters(converter_dict: dict[type, type[Converter]]) -> dict[type, type[Converter]]:
-    return SNEK_OBJECT_TO_CONVERTER | converter_dict
+    return _global_type_to_converter | converter_dict
 
 
 def _get_from_anno_type(anno: Annotated, name: str) -> Any:
@@ -368,9 +373,7 @@ class MolterCommand(MessageCommand):
         metadata=docs("A dict of a subcommand's name and the subcommand for this command."), factory=dict
     )
     _usage: Optional[str] = field(default=None)
-    _type_to_converter: dict[type, type[Converter]] = field(
-        default=SNEK_OBJECT_TO_CONVERTER, converter=_merge_converters
-    )
+    _type_to_converter: dict[type, type[Converter]] = field(factory=dict, converter=_merge_converters)
 
     def __attrs_post_init__(self) -> None:
         super().__attrs_post_init__()  # we want checks to work
@@ -840,3 +843,19 @@ def register_converter(anno_type: type, converter: type[Converter]) -> Callable[
         return command
 
     return wrapper
+
+
+def globally_register_converter(anno_type: type, converter: type[Converter]) -> None:
+    """
+    A decorator that allows you to register converters for commands decorated/made after this is run.
+
+    This allows for native type annotations without needing to use `typing.Annotated`.
+    Note that this does not retroactively register converters for commands already made.
+
+    Args:
+        anno_type (`type`): The type to register for.
+        converter (`type[Converter]`): The converter to use for the type.
+    """
+    # hate me, but i think it makes sense here
+    global _global_type_to_converter
+    _global_type_to_converter |= {anno_type: converter}
