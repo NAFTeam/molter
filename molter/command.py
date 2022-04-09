@@ -801,14 +801,14 @@ msg_command = message_command
 MCT = TypeVar("MCT", Callable, MolterCommand)
 
 
-def register_converter(anno_type: type, converter: type[Converter]) -> Callable[..., MCT]:
+def register_converter(type_: type, converter: type[Converter]) -> Callable[..., MCT]:
     """
     A decorator that allows you to register converters for a type for a specific command.
 
     This allows for native type annotations without needing to use `typing.Annotated`.
 
     Args:
-        anno_type (`type`): The type to register for.
+        type_ (`type`): The type to register for.
         converter (`type[Converter]`): The converter to use for the type.
 
     Returns:
@@ -819,16 +819,16 @@ def register_converter(anno_type: type, converter: type[Converter]) -> Callable[
 
     def wrapper(command: MCT) -> MCT:
         if hasattr(command, "_type_to_converter"):
-            command._type_to_converter[anno_type] = converter
+            command._type_to_converter[type_] = converter
         else:
-            command._type_to_converter = {anno_type: converter}
+            command._type_to_converter = {type_: converter}
 
         if isinstance(command, MolterCommand):
-            # we want to update any instance where the anno_type was used
+            # we want to update any instance where the type_ was used
             # to use the provided converter without re-analyzing every param
             for param in command.parameters:
                 param_type = param.type
-                if anno_type == param_type:
+                if type_ == param_type:
                     param.converters = [converter]
                 else:
                     if typing.get_origin(param_type) == Annotated:
@@ -837,7 +837,7 @@ def register_converter(anno_type: type, converter: type[Converter]) -> Callable[
                     with suppress(ValueError):
                         # if you have multiple of the same anno/type here, i don't know
                         # what to tell you other than why
-                        index = typing.get_args(param.type).index(anno_type)
+                        index = typing.get_args(param.type).index(type_)
                         param.converters[index] = converter
 
         return command
@@ -845,7 +845,7 @@ def register_converter(anno_type: type, converter: type[Converter]) -> Callable[
     return wrapper
 
 
-def globally_register_converter(anno_type: type, converter: type[Converter]) -> None:
+def globally_register_converter(type_: type, converter: type[Converter]) -> None:
     """
     A decorator that allows you to register converters for commands decorated/made after this is run.
 
@@ -853,9 +853,9 @@ def globally_register_converter(anno_type: type, converter: type[Converter]) -> 
     Note that this does not retroactively register converters for commands already made.
 
     Args:
-        anno_type (`type`): The type to register for.
+        type_ (`type`): The type to register for.
         converter (`type[Converter]`): The converter to use for the type.
     """
     # hate me, but i think it makes sense here
     global _global_type_to_converter
-    _global_type_to_converter |= {anno_type: converter}
+    _global_type_to_converter |= {type_: converter}
