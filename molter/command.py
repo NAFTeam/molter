@@ -130,6 +130,7 @@ def _is_nested(func: Callable) -> bool:
 
 
 def _merge_converters(converter_dict: dict[type, type[Converter]]) -> dict[type, type[Converter]]:
+    global _global_type_to_converter  # pylance doesn't complain if this isn't here, but just in case...
     return _global_type_to_converter | converter_dict
 
 
