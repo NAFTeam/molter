@@ -5,7 +5,7 @@ import typing  # it's weird importing get_args and get_origin directly
 from contextlib import suppress
 from collections import deque
 from types import NoneType, UnionType
-from typing import Optional, Any, Callable, Sequence, Annotated, Literal, Union, TypeVar
+from typing import Optional, Any, Callable, Sequence, Annotated, Literal, Union, TypeVar, TypedDict
 
 import attrs
 
@@ -13,7 +13,7 @@ from dis_snek.client.const import MISSING
 from dis_snek.client.utils.input_utils import _quotes
 from dis_snek.client.utils.attr_utils import define, field, docs
 from dis_snek.models.snek.command import MessageCommand
-from dis_snek.models.snek.context import MessageContext
+from dis_snek.models.snek.context import MessageContext, Context
 
 from molter.errors import BadArgument
 from molter.converters import Converter, LiteralConverter, Greedy, SNEK_OBJECT_TO_CONVERTER
@@ -27,6 +27,7 @@ __all__ = (
     "msg_command",
     "register_converter",
     "globally_register_converter",
+    "prefixed_parameter",
 )
 
 # turns out dis-snek's args thinks newlines are the start of new arguments
@@ -41,6 +42,10 @@ ARGS_PARSE = re.compile(_pending_regex)
 
 # thankfully, modules are singletons
 _global_type_to_converter = dict(SNEK_OBJECT_TO_CONVERTER)
+
+
+class ParameterInfo(TypedDict):
+    default: Callable[[Context, str], Any] | Any
 
 
 @attrs.define(slots=True)
@@ -233,10 +238,16 @@ def _get_params(
         callback = functools.partial(func, None)
 
     params = inspect.signature(callback).parameters
+    parameter_info: dict[str, ParameterInfo] = getattr(func, "_parameter_info", {})
+
     for name, param in params.items():
         cmd_param = CommandParameter()
         cmd_param.name = name
-        cmd_param.default = param.default if param.default is not param.empty else MISSING
+
+        if parameter_dict := parameter_info.get(name):
+            cmd_param.default = parameter_dict["default"]
+        else:
+            cmd_param.default = param.default if param.default is not param.empty else MISSING
 
         cmd_param.type = anno = param.annotation
 
@@ -302,7 +313,9 @@ async def _convert(param: CommandParameter, ctx: MessageContext, arg: str) -> tu
     used_default = False
     if converted == MISSING:
         if param.optional:
-            converted = param.default
+            converted = (
+                await maybe_coroutine(param.default, ctx) if inspect.isfunction(param.default) else param.default
+            )
             used_default = True
         else:
             union_types = typing.get_args(param.type)
@@ -334,7 +347,9 @@ async def _greedy_convert(
 
     if not greedy_args:
         if param.default:
-            greedy_args = param.default  # im sorry, typehinters
+            greedy_args = (
+                await maybe_coroutine(param.default, ctx) if inspect.isfunction(param.default) else param.default
+            )
         else:
             raise BadArgument(f"Failed to find any arguments for {repr(param.type)}.")
 
@@ -865,3 +880,31 @@ def globally_register_converter(type_: type, converter: type[Converter]) -> None
     # hate me, but i think it makes sense here
     global _global_type_to_converter
     _global_type_to_converter |= {type_: converter}
+
+
+def prefixed_parameter(
+    parameter_name: str, *, default: Any = MISSING, factory: Callable[[Context], Any] = None
+) -> Callable[..., MCT]:
+    def wrapper(command: MCT) -> MCT:
+        parameter_info: ParameterInfo = {}  # type: ignore
+
+        if factory is not None:
+            parameter_info["default"] = factory
+        elif default is not MISSING:
+            parameter_info["default"] = default
+
+        base = command.callback if isinstance(command, MolterCommand) else command
+        if hasattr(base, "_parameters_info"):
+            base._parameter_info[parameter_name] = parameter_info  # type: ignore
+        else:
+            base._parameter_info = {parameter_name: parameter_info}  # type: ignore
+
+        if isinstance(command, MolterCommand):
+            # this part likely won't be needed once molter is merged with dis_snek
+            if the_param := next((p for p in command.parameters if p.name == parameter_name), None):
+                if factory is not None or default is not MISSING:
+                    the_param.default = parameter_info["default"]
+
+        return command
+
+    return wrapper
