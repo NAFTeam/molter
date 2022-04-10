@@ -109,7 +109,7 @@ class MolterSnake(Snake):
 
         for name in names[1:]:
             try:
-                cmd = cmd.command_dict[name]
+                cmd = cmd.subcommands[name]
             except (AttributeError, KeyError):
                 return None
 
@@ -164,7 +164,7 @@ class MolterSnake(Snake):
                 while True:
                     first_word: str = get_first_word(content_parameters)  # type: ignore
                     if isinstance(command, MolterCommand):
-                        new_command = command.command_dict.get(first_word)
+                        new_command = command.subcommands.get(first_word)
                     else:
                         new_command = command.commands.get(first_word)
                     if not new_command or not new_command.enabled:
@@ -176,7 +176,7 @@ class MolterSnake(Snake):
                         # normal message commands can't have subcommands
                         break
 
-                    if command.command_dict and command.hierarchical_checking:
+                    if command.subcommands and command.hierarchical_checking:
                         await new_command._can_run(context)
 
                 if isinstance(command, Snake):
