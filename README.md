@@ -11,7 +11,7 @@ Primary developed by Astrea49. Direct questions about the project to her, please
 
 # Installing
 ```sh
-pip install -U git+https://github.com/Discord-Snake-Pit/Dis-Snek.git@dev git+https://github.com/Discord-Snake-Pit/molter.git@dev
+pip install -U molter
 ```
 
 # Example
