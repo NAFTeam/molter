@@ -1,3 +1,5 @@
+# EDIT: This repo is archived - its features have been merged into `Dis-Snek`/`NAFF`.
+
 [![PyPI](https://img.shields.io/pypi/v/molter)](https://pypi.org/project/molter/)
 [![Downloads](https://static.pepy.tech/personalized-badge/molter?period=total&units=abbreviation&left_color=grey&right_color=green&left_text=pip%20installs)](https://pepy.tech/project/molter)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
